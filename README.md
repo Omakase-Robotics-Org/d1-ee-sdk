@@ -4,8 +4,8 @@ The end-effector SDK of the Omakase D1: the shared-memory contracts through
 which `d1-firmwared` (the robot's daemon) serves an end effector driven by a
 process of its own — a **provider** — and the Rust crates a provider is built
 from. Every D1 end effector is a provider, the stock gripper included, and
-every provider is a package of its own built from a repository of its own on
-this SDK; the daemon builds and ships none of them.
+every provider is a package of its own built on this SDK; the daemon builds
+and ships none of them.
 
 | Path | Holds |
 | --- | --- |
@@ -41,10 +41,18 @@ Then:
    device on the arm's flange CAN channel).
 2. Start a provider crate that depends on this repository at a release tag
    (see [Depending on the SDK](#depending-on-the-sdk)), implement
-   `d1fw_ee_provider::Provider` and call `d1fw_ee_provider::serve`.
-   [d1-ee-damiao](https://github.com/Omakase-Robotics-Org/d1-ee-damiao), the
-   provider of the D1's stock gripper, is a complete example of a flange
-   device provider with golden-frame and conformance tests.
+   `d1fw_ee_provider::Provider` and call `d1fw_ee_provider::serve`. Two
+   public examples:
+   - this repository's own test provider: `TestProvider`
+     (`crates/d1fw-ee-provider/src/test_provider.rs`, feature
+     `test-support`), a simulated one-joint gripper, served as a process by
+     `d1-ee-test-provider` (`crates/d1fw-ee-harness/src/bin/test_provider.rs`);
+   - the Python reference provider in the public
+     [manipulation-kit](https://github.com/Omakase-Robotics-Org/manipulation-kit)
+     repository: the module `manipulation_kit.end_effectors` and its guide
+     `docs/end-effector-providers.md`. It is on an open pull request
+     ([#48](https://github.com/Omakase-Robotics-Org/manipulation-kit/pull/48),
+     branch `feat/end-effector-shm-provider`) until that is merged.
 3. Test it against `d1fw_ee_harness::Host` and `conformance::lifecycle`.
    Running it on a robot needs the robot's `d1-firmwared` configuration to
    declare the side. Both are steps of the next section.
@@ -65,8 +73,8 @@ Then:
    implements its wire link and reuses the rest. In another language,
    implement the contract on the iceoryx2 0.9.3 bindings: the reference
    provider in Python is `manipulation_kit.end_effectors.shm_provider` in the
-   public manipulation-kit repository (pull request
-   Omakase-Robotics-Org/manipulation-kit#48), and a ROS 2 end effector
+   public manipulation-kit repository (on its open pull request #48 until
+   merged), and a ROS 2 end effector
    attaches through the bridge `omakase_ee_bridge` of the D1's ROS 2 stack
    (not a public repository), itself a provider of this contract.
 3. **Test it without a robot.** Stand the daemon's side up with
@@ -101,15 +109,14 @@ Then:
    `d1-firmwared config ee-providers` writes the `.env` file. The side
    appears in `GET /v1/end_effectors` once the declaration is accepted.
 
-The provider packages built on this SDK:
+The vendor provider packages for the end effectors d1-firmwared knows ship
+with the robot; their source is not public:
 
-| Repository | Package | Model |
-| --- | --- | --- |
-| `d1-ee-damiao` | `d1-ee-damiao` | `damiao-v1.1`, `damiao-v1.2` (the D1's stock parallel gripper) |
-| `d1-ee-linkerbot` | `d1-ee-linkerbot` | `linkerbot/o30` (LinkerHand O30) |
-| `d1-ee-leadshine` | `d1-ee-leadshine` | `leadshine/dh116s` (Leadshine DH116S) |
-
-`d1-ee-damiao` is public; the other provider repositories are not.
+| Package | Model |
+| --- | --- |
+| `d1-ee-damiao` | `damiao-v1.1`, `damiao-v1.2` (the D1's stock parallel gripper) |
+| `d1-ee-linkerbot` | `linkerbot/o30` (LinkerHand O30) |
+| `d1-ee-leadshine` | `leadshine/dh116s` (Leadshine DH116S) |
 
 ## Depending on the SDK
 
