@@ -1,0 +1,70 @@
+# An end-effector provider (spec/end_effector.shm/1.md of d1-ee-sdk) for one
+# arm side, run as the account d1-firmwared runs as. The instance name is the
+# side: d1-firmwared-ee-provider@b serves `[end_effector.b] driver = "shm"`.
+# The d1-firmwared package installs this unit; a provider package installs
+# only its program.
+#
+# Why this account: iceoryx2 0.9.3 creates every shared-memory segment,
+# socket and lock file mode 0600 (owner only; compile-time constants, no
+# configuration), so a provider under any other account cannot open the
+# daemon's services. The provider's program may live anywhere this account
+# can read and execute, a developer's home directory included (grant the
+# account traverse and read access to it, for example with
+# `setfacl -m u:doraemon:x /home/<user>` and
+# `setfacl -R -m u:doraemon:rX /home/<user>/<provider>`).
+#
+# The command comes from /etc/d1-firmwared/ee-provider/<side>.env, one line:
+#
+#   EE_PROVIDER_COMMAND=/home/<user>/acme/bin/acme-provider --service omakase/ee/b
+#
+# then `systemctl enable --now d1-firmwared-ee-provider@b`. A provider
+# package installs its program as /opt/<package>/bin/<program>, and for a
+# model a package serves `d1-firmwared config ee-providers` writes the line:
+#
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-damiao/bin/d1-ee-damiao-provider --side a
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-linkerbot/bin/d1-ee-linkerbot-provider --side a
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-leadshine/bin/d1-ee-leadshine-provider --side b
+#
+# While the command's program is not installed (or not executable) the unit
+# is skipped, not failed (ExecCondition=): it can be enabled before its
+# package is installed, and starts with the daemon's next start once it is.
+#
+# Enabled, the unit is wanted by d1-firmwared.service: it starts and restarts
+# with the daemon, and stops with it (Requires=). A local change to the unit
+# itself belongs in a drop-in: `systemctl edit d1-firmwared-ee-provider@b`.
+
+[Unit]
+Description=End-effector provider for arm side %i (end_effector.shm/1)
+# The provider's services live under the daemon's runtime directory
+# (/run/d1-firmwared/iceoryx2), which exists once the daemon's unit starts.
+Requires=d1-firmwared.service
+After=d1-firmwared.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=exec
+User=doraemon
+EnvironmentFile=/etc/d1-firmwared/ee-provider/%i.env
+# `$$` hands `$EE_PROVIDER_COMMAND` to the shell, which splits it into the
+# program and its arguments; the condition holds while that program is an
+# executable file.
+ExecCondition=/bin/sh -c 'set -- $$EE_PROVIDER_COMMAND; test -x "$$1"'
+ExecStart=/bin/sh -c 'exec $$EE_PROVIDER_COMMAND'
+Restart=on-failure
+RestartSec=1s
+# The shared-memory root. iceoryx2's segments are in /dev/shm, which
+# ProtectSystem leaves writable. DynamicUser, PrivateIPC, PrivateDevices and
+# PrivateUsers would each separate this process's /dev/shm or account from
+# the daemon's, so none of them is set.
+ReadWritePaths=/run/d1-firmwared
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=d1-firmwared.service

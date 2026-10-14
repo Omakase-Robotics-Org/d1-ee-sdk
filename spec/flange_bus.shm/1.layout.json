@@ -1,0 +1,372 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "CHANNEL_EXTENDED_IDS": 2,
+    "CHANNEL_SUPPRESSES_REPEATS": 1,
+    "FRAME_EXTENDED_ID": 1,
+    "STATUS_ARM_FAULTED": 4,
+    "STATUS_CHANNEL_UP": 1,
+    "STATUS_LATCHED": 2,
+    "TX_MOTION": 0,
+    "TX_READ": 1,
+    "TX_STOP": 2
+  },
+  "contract": "flange_bus.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "DEFAULT_MAX_TX_HZ": 1000,
+    "ERROR_LEN": 128,
+    "EXTENDED_ID_MAX": 536870911,
+    "MAX_BASE_LEN": 128,
+    "MAX_FRAME_LEN": 64,
+    "MAX_TX_HZ": 10000,
+    "STANDARD_ID_MAX": 2047,
+    "TX_WINDOW": 32
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 4,
+      "fields": [
+        {
+          "name": "id",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "len",
+          "offset": 8,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 12,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "data",
+          "offset": 16,
+          "size": 64,
+          "type": "u8[64]"
+        }
+      ],
+      "name": "Frame",
+      "size": 80,
+      "type_name": "omakase_flange_v1_Frame"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "channel_mono_ns",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "frame",
+          "offset": 40,
+          "size": 80,
+          "type": "Frame"
+        }
+      ],
+      "name": "RxFrame",
+      "size": 120,
+      "type_name": "omakase_flange_v1_RxFrame"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "kind",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "frame",
+          "offset": 40,
+          "size": 80,
+          "type": "Frame"
+        }
+      ],
+      "name": "TxFrame",
+      "size": 120,
+      "type_name": "omakase_flange_v1_TxFrame"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "period_ms",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        }
+      ],
+      "name": "Heartbeat",
+      "size": 40,
+      "type_name": "omakase_flange_v1_Heartbeat"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "bound_instance_id",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_seq_seen",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "rx_frames",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_forwarded",
+          "offset": 56,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_refused_latched",
+          "offset": 64,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_refused_rate",
+          "offset": 72,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_refused_invalid",
+          "offset": 80,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_refused_unbound",
+          "offset": 88,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_refused_stale",
+          "offset": 96,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_lost",
+          "offset": 104,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tx_failed",
+          "offset": 112,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "flags",
+          "offset": 120,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "channel_flags",
+          "offset": 124,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "max_tx_hz",
+          "offset": 128,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "max_frame_len",
+          "offset": 132,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "period_ms",
+          "offset": 136,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 140,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "channel_error",
+          "offset": 144,
+          "size": 128,
+          "type": "u8[128]"
+        }
+      ],
+      "name": "Status",
+      "size": 272,
+      "type_name": "omakase_flange_v1_Status"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/flange/<side>",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 0,
+      "max_publishers": 1,
+      "max_subscribers": 2,
+      "pattern": "publish_subscribe",
+      "payload": "RxFrame",
+      "publisher": "daemon",
+      "subscriber": "provider",
+      "subscriber_max_buffer_size": 64,
+      "suffix": "rx"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 0,
+      "max_publishers": 1,
+      "max_subscribers": 1,
+      "pattern": "publish_subscribe",
+      "payload": "TxFrame",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 64,
+      "suffix": "tx"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Status",
+      "publisher": "daemon",
+      "subscriber": "provider",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "status"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Heartbeat",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "heartbeat"
+    }
+  ],
+  "timing_ms": {
+    "DEFAULT_STALE_AFTER_MS": 500,
+    "MAX_HEARTBEAT_PERIOD_MS": 100,
+    "STATUS_PERIOD_MS": 100,
+    "TX_MAX_AGE_MS": 100
+  }
+}

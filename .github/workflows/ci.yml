@@ -1,0 +1,50 @@
+# The gate on every pull request, on main and on a release tag: the layouts
+# are the frozen version 1 the crate pins, and the workspace is formatted,
+# lint-clean and green. d1-firmwared and every provider repository depend on
+# a tag of this repository, so a tag is only cut from a commit this passed.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: layout SHA-256 pins
+        run: tools/check-layout-sha.sh
+
+      # rust-version in Cargo.toml is the contract; install exactly that.
+      - name: rust toolchain
+        run: |
+          set -eu
+          version="$(sed -n 's/^rust-version *= *"\(.*\)"/\1/p' Cargo.toml | sed -n 1p)"
+          test -n "$version"
+          rustup toolchain install "$version" --profile minimal --component rustfmt,clippy
+          rustup default "$version"
+          cargo --version && rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: test
+        run: cargo test --workspace --all-features --locked

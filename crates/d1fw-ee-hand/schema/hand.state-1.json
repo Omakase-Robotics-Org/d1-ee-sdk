@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HandState",
+  "description": "One sampled snapshot of a hand.",
+  "properties": {
+    "all_enabled": {
+      "description": "Whether the provider believes every axis is enabled.",
+      "type": "boolean"
+    },
+    "enabled": {
+      "description": "Per-axis enabled flags, as the hand reports them.",
+      "items": {
+        "type": "boolean"
+      },
+      "type": "array"
+    },
+    "error_code": {
+      "description": "The most recent device error record, `0` for none. What the number\nis depends on the model, so a consumer compares it with `0` and with\nits own previous value, and reads `faults` for its meaning; each hand\nprovider documents its own record.",
+      "format": "int32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "faults": {
+      "description": "Human descriptions of every fault currently reported.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "features": {
+      "description": "Capability tokens, repeated here so a consumer that only polls state\ndoes not have to fetch capabilities separately.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "live": {
+      "description": "Whether `positions` came from a reading taken for THIS call, rather\nthan from the last one the command path happened to take.\n\nA read on these hands is not free — it competes with the command path\nfor the arm's single passthrough channel — so a busy hand answers\nwith its last sample and says so here.",
+      "type": "boolean"
+    },
+    "model": {
+      "description": "Which model answered (`\"<maker>/<model>\"`).",
+      "type": "string"
+    },
+    "positions": {
+      "description": "Per-axis measured position as a fraction of the axis's range.",
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "array"
+    },
+    "positions_wire": {
+      "description": "Per-axis measured position in the raw vendor unit.",
+      "items": {
+        "format": "int32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "side": {
+      "description": "Which arm side it is mounted on.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "side",
+    "positions",
+    "positions_wire",
+    "enabled",
+    "all_enabled",
+    "error_code",
+    "faults",
+    "live",
+    "features"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,28 @@
+[package]
+name = "d1fw-ee-provider"
+description = "D1 firmware: the provider SDK of end_effector.shm/1 — what a process that drives its own end effector links to serve it to d1-firmwared over iceoryx2"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# `TestProvider`: a simulated one-joint gripper served over the contract, for
+# the daemon's tests of its shared-memory driver.
+test-support = []
+
+[dependencies]
+d1fw-ee-shm-contract.workspace = true
+iceoryx2.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+d1fw-ee-provider = { path = ".", features = ["test-support"] }

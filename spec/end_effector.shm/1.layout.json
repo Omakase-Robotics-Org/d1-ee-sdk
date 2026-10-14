@@ -1,0 +1,904 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "CAP_CLEAR_FAULT": 32,
+    "CAP_CONTACT_SENSING": 16,
+    "CAP_GRIP_TORQUE": 8,
+    "CAP_JOINTS": 2,
+    "CAP_JOINT_EFFORT": 512,
+    "CAP_JOINT_VELOCITY": 256,
+    "CAP_OPENNESS": 1,
+    "CAP_REGISTERS": 64,
+    "CAP_STROKE_COMPLETION": 4,
+    "CAP_TICKS": 128,
+    "FORCE_SENSING_ESTIMATED": 1,
+    "FORCE_SENSING_MEASURED": 2,
+    "FORCE_SENSING_NONE": 0,
+    "GRIP_FIRM": 2,
+    "GRIP_INDEX_FIRM": 1,
+    "GRIP_INDEX_SOFT": 0,
+    "GRIP_INDEX_STRONG": 2,
+    "GRIP_SOFT": 1,
+    "GRIP_STRONG": 4,
+    "JOINT_UNIT_FRACTION": 1,
+    "JOINT_UNIT_RAD": 0,
+    "OP_CLEAR_FAULT": 1,
+    "OP_REGISTERS": 2,
+    "OP_SET": 1,
+    "OP_STOP": 2,
+    "PHASE_CLOSING": 1,
+    "PHASE_HOLD": 3,
+    "PHASE_IDLE": 0,
+    "PHASE_OPENING": 2,
+    "SET_GRIP": 2,
+    "SET_TORQUE": 4,
+    "SET_WAIT": 1,
+    "STATE_CAP_REACHED": 128,
+    "STATE_CAP_REACHED_KNOWN": 64,
+    "STATE_CONTACT": 32,
+    "STATE_CONTACT_KNOWN": 16,
+    "STATE_DETAIL_DROPPED": 256,
+    "STATE_HOLDING": 8,
+    "STATE_HOLDING_KNOWN": 4,
+    "STATE_LIVE": 1,
+    "STATE_TRACKING": 2,
+    "STATUS_DEVICE": 4,
+    "STATUS_INVALID": 7,
+    "STATUS_OK": 0,
+    "STATUS_REFUSED": 1,
+    "STATUS_STALE_TARGET": 6,
+    "STATUS_TIMEOUT": 5,
+    "STATUS_UNAVAILABLE": 3,
+    "STATUS_UNPROCESSABLE": 2,
+    "TICK_COMMANDED": 1,
+    "TICK_EFFORT": 2
+  },
+  "contract": "end_effector.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "BODY_LEN": 16384,
+    "DEFAULT_SET_TIMEOUT_MS": 10000,
+    "DETAIL_LEN": 8192,
+    "EXTRA_LEN": 1024,
+    "FAULT_LEN": 128,
+    "IDS_LEN": 1024,
+    "KEY_LEN": 32,
+    "MAX_BASE_LEN": 128,
+    "MAX_COMMAND_HZ": 10000,
+    "MAX_JOINTS": 32,
+    "MAX_SET_EXTRA": 8,
+    "MAX_SET_TIMEOUT_MS": 60000,
+    "MESSAGE_LEN": 256,
+    "NAME_LEN": 64
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "name",
+          "offset": 0,
+          "size": 32,
+          "type": "u8[32]"
+        },
+        {
+          "name": "unit",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "min",
+          "offset": 40,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "max",
+          "offset": 48,
+          "size": 8,
+          "type": "f64"
+        }
+      ],
+      "name": "Joint",
+      "size": 56,
+      "type_name": "omakase_ee_v1_Joint"
+    },
+    {
+      "align": 1,
+      "fields": [
+        {
+          "name": "name",
+          "offset": 0,
+          "size": 32,
+          "type": "u8[32]"
+        }
+      ],
+      "name": "ExtraKey",
+      "size": 32,
+      "type_name": "omakase_ee_v1_ExtraKey"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "mass_kg",
+          "offset": 0,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "com_mm",
+          "offset": 8,
+          "size": 24,
+          "type": "f64[3]"
+        },
+        {
+          "name": "inertia",
+          "offset": 32,
+          "size": 48,
+          "type": "f64[6]"
+        },
+        {
+          "name": "tcp_xyz_mm",
+          "offset": 80,
+          "size": 24,
+          "type": "f64[3]"
+        },
+        {
+          "name": "tcp_rpy_deg",
+          "offset": 104,
+          "size": 24,
+          "type": "f64[3]"
+        }
+      ],
+      "name": "Tool",
+      "size": 128,
+      "type_name": "omakase_ee_v1_Tool"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "generation",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "driver",
+          "offset": 40,
+          "size": 64,
+          "type": "u8[64]"
+        },
+        {
+          "name": "detail_schema",
+          "offset": 104,
+          "size": 64,
+          "type": "u8[64]"
+        },
+        {
+          "name": "model",
+          "offset": 168,
+          "size": 64,
+          "type": "u8[64]"
+        },
+        {
+          "name": "node_id",
+          "offset": 232,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "joint_count",
+          "offset": 236,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "joints",
+          "offset": 240,
+          "size": 1792,
+          "type": "Joint[32]"
+        },
+        {
+          "name": "capabilities",
+          "offset": 2032,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "grip_presets",
+          "offset": 2036,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "force_sensing",
+          "offset": 2040,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "max_command_hz",
+          "offset": 2044,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "set_timeout_ms",
+          "offset": 2048,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "set_extra_count",
+          "offset": 2052,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "set_extra",
+          "offset": 2056,
+          "size": 256,
+          "type": "ExtraKey[8]"
+        },
+        {
+          "name": "tool_declared",
+          "offset": 2312,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 2316,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "tool",
+          "offset": 2320,
+          "size": 128,
+          "type": "Tool"
+        },
+        {
+          "name": "guard_model",
+          "offset": 2448,
+          "size": 64,
+          "type": "u8[64]"
+        }
+      ],
+      "name": "Descriptor",
+      "size": 2512,
+      "type_name": "omakase_ee_v1_Descriptor"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "descriptor_generation",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "state_period_ms",
+          "offset": 40,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 44,
+          "size": 4,
+          "type": "u32"
+        }
+      ],
+      "name": "Heartbeat",
+      "size": 48,
+      "type_name": "omakase_ee_v1_Heartbeat"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "descriptor_generation",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "openness",
+          "offset": 40,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "torque_nm",
+          "offset": 48,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "flags",
+          "offset": 56,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "joint_count",
+          "offset": 60,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "joints",
+          "offset": 64,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "velocity",
+          "offset": 320,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "effort",
+          "offset": 576,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "fault",
+          "offset": 832,
+          "size": 128,
+          "type": "u8[128]"
+        },
+        {
+          "name": "detail_len",
+          "offset": 960,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 964,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "detail",
+          "offset": 968,
+          "size": 8192,
+          "type": "u8[8192]"
+        }
+      ],
+      "name": "State",
+      "size": 9160,
+      "type_name": "omakase_ee_v1_State"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "descriptor_generation",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "tick_seq",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "timestamp_us",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "phase",
+          "offset": 56,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "joint_count",
+          "offset": 60,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 64,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 68,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "measured",
+          "offset": 72,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "commanded",
+          "offset": 328,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "effort",
+          "offset": 584,
+          "size": 256,
+          "type": "f64[32]"
+        },
+        {
+          "name": "fault",
+          "offset": 840,
+          "size": 128,
+          "type": "u8[128]"
+        }
+      ],
+      "name": "Tick",
+      "size": 968,
+      "type_name": "omakase_ee_v1_Tick"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "target_instance_id",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "descriptor_generation",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "timestamp_us",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "joint_count",
+          "offset": 56,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 60,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "targets",
+          "offset": 64,
+          "size": 256,
+          "type": "f64[32]"
+        }
+      ],
+      "name": "JointsCommand",
+      "size": 320,
+      "type_name": "omakase_ee_v1_JointsCommand"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "stop_generation",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "period_ms",
+          "offset": 40,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 44,
+          "size": 4,
+          "type": "u32"
+        }
+      ],
+      "name": "Control",
+      "size": 48,
+      "type_name": "omakase_ee_v1_Control"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "target_instance_id",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "descriptor_generation",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "start_by_mono_ns",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "op",
+          "offset": 56,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 60,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "grip",
+          "offset": 64,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "extra_len",
+          "offset": 68,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "openness",
+          "offset": 72,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "torque_nm",
+          "offset": 80,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "extra",
+          "offset": 88,
+          "size": 1024,
+          "type": "u8[1024]"
+        }
+      ],
+      "name": "CommandRequest",
+      "size": 1112,
+      "type_name": "omakase_ee_v1_CommandRequest"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "status",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "message",
+          "offset": 40,
+          "size": 256,
+          "type": "u8[256]"
+        }
+      ],
+      "name": "CommandResponse",
+      "size": 296,
+      "type_name": "omakase_ee_v1_CommandResponse"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "target_instance_id",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "op",
+          "offset": 40,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "ids_len",
+          "offset": 44,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "ids",
+          "offset": 48,
+          "size": 1024,
+          "type": "u8[1024]"
+        }
+      ],
+      "name": "FaultRequest",
+      "size": 1072,
+      "type_name": "omakase_ee_v1_FaultRequest"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "status",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "body_len",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "message",
+          "offset": 40,
+          "size": 256,
+          "type": "u8[256]"
+        },
+        {
+          "name": "body",
+          "offset": 296,
+          "size": 16384,
+          "type": "u8[16384]"
+        }
+      ],
+      "name": "FaultResponse",
+      "size": 16680,
+      "type_name": "omakase_ee_v1_FaultResponse"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/ee/<side>",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Descriptor",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "descriptor"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Heartbeat",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "heartbeat"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "State",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "state"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 0,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Tick",
+      "publisher": "provider",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 64,
+      "suffix": "tick"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 0,
+      "max_publishers": 1,
+      "max_subscribers": 2,
+      "pattern": "publish_subscribe",
+      "payload": "JointsCommand",
+      "publisher": "daemon",
+      "subscriber": "provider",
+      "subscriber_max_buffer_size": 4,
+      "suffix": "joints"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 4,
+      "pattern": "publish_subscribe",
+      "payload": "Control",
+      "publisher": "daemon",
+      "subscriber": "provider",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "control"
+    },
+    {
+      "client": "daemon",
+      "enable_safe_overflow_for_requests": false,
+      "enable_safe_overflow_for_responses": false,
+      "max_active_requests_per_client": 4,
+      "max_clients": 2,
+      "max_response_buffer_size": 2,
+      "max_servers": 1,
+      "pattern": "request_response",
+      "request": "CommandRequest",
+      "response": "CommandResponse",
+      "server": "provider",
+      "suffix": "command"
+    },
+    {
+      "client": "daemon",
+      "enable_safe_overflow_for_requests": false,
+      "enable_safe_overflow_for_responses": false,
+      "max_active_requests_per_client": 4,
+      "max_clients": 2,
+      "max_response_buffer_size": 2,
+      "max_servers": 1,
+      "pattern": "request_response",
+      "request": "FaultRequest",
+      "response": "FaultResponse",
+      "server": "provider",
+      "suffix": "fault"
+    }
+  ],
+  "timing_ms": {
+    "CONTROL_PERIOD_MS": 100,
+    "DEFAULT_STALE_AFTER_MS": 500,
+    "JOINTS_MAX_AGE_MS": 200,
+    "LATCHED_REPUBLISH_MS": 500,
+    "MAX_HEARTBEAT_PERIOD_MS": 100,
+    "START_WINDOW_MS": 250
+  }
+}

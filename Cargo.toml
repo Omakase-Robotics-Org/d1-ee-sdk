@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+license = "LicenseRef-Proprietary" # Omakase Robotics
+repository = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk"
+
+[workspace.dependencies]
+# The shared-memory transport. An EXACT pin: iceoryx2's shared-memory layout
+# is not guaranteed compatible across releases, so d1-firmwared and every
+# provider must be built against the same release. d1-firmware pins the same
+# `=0.9.3`; the two pins move together or not at all.
+iceoryx2 = "=0.9.3"
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive", "env"] }
+# CLOCK_MONOTONIC for the contracts' `mono_ns` stamps; `time` is the only
+# feature taken.
+rustix = { version = "1", default-features = false, features = ["std", "time"] }
+sha2 = "0.11"
+# JSON Schema validation of the hand.state/1 document. No default features:
+# the validator must never reach the network to resolve a $ref.
+jsonschema = { version = "0.55", default-features = false }
+tempfile = "3"
+# --- this repository ---
+d1fw-canfd = { path = "crates/d1fw-canfd" }
+d1fw-ee-shm-contract = { path = "crates/d1fw-ee-shm-contract" }
+d1fw-ee-provider = { path = "crates/d1fw-ee-provider" }
+d1fw-ee-hand = { path = "crates/d1fw-ee-hand" }
+d1fw-ee-harness = { path = "crates/d1fw-ee-harness" }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

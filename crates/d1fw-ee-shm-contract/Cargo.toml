@@ -1,0 +1,21 @@
+[package]
+name = "d1fw-ee-shm-contract"
+description = "D1 firmware: the end_effector.shm/1 contract — iceoryx2 service names, fixed-size message layouts and their validation, shared by d1-firmwared and every end-effector provider"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+iceoryx2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rustix.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true

@@ -1,0 +1,27 @@
+[package]
+name = "d1fw-ee-harness"
+description = "The daemon's side of end_effector.shm/1 and flange_bus.shm/1 for a provider's tests: declaration, liveness, command validation and pacing, the stop generation, a flange relay over a simulated device, frame recording, golden-frame comparison and a provider process's conformance run"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "d1-ee-test-provider"
+path = "src/bin/test_provider.rs"
+
+[dependencies]
+d1fw-canfd.workspace = true
+d1fw-ee-shm-contract.workspace = true
+d1fw-ee-provider = { workspace = true, features = ["test-support"] }
+iceoryx2.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
