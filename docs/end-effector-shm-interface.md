@@ -20,8 +20,9 @@ for every end effector: validation, the timestamp rule, the command
 ceiling, the soft-kill latch and the stop, tool registration from a
 declaration, the arm guard, and the REST/WebSocket/ROS 2 surfaces. Every end
 effector is a provider, the D1's stock gripper included, and every provider
-is a package of its own built from a repository of its own on this SDK; one
-vendor's provider never depends on another's.
+is a package of its own built on this SDK; one vendor's provider never
+depends on another's. The vendor provider packages for the end effectors
+d1-firmwared knows ship with the robot; their source is not public.
 
 A provider's device is either on a bus the daemon does not own (a USB
 adapter, an EtherCAT master, a vendor SDK), which the provider opens itself,
@@ -361,11 +362,14 @@ it returns, so a provider can be restarted inside one process.
 `TestProvider` (feature `test-support`) is a simulated one-joint gripper
 that records every call: what a test of the daemon's side runs against, and
 what `d1-ee-test-provider` (crate `d1fw-ee-harness`) serves as a process.
-A reference provider in Python, on the iceoryx2 0.9.3 bindings, lives with
-the manipulation kit (`manipulation_kit.end_effectors.shm_provider`), which
-checks its message definitions against `1.layout.json`; an end effector
-driven over ROS 2 attaches through the bridge `omakase_ee_bridge` of
-d1-ros2, itself a provider of this contract.
+Both are public examples of a provider. A reference provider in Python, on
+the iceoryx2 0.9.3 bindings, lives in the public manipulation-kit repository
+(module `manipulation_kit.end_effectors`, guide
+`docs/end-effector-providers.md`; on its open pull request #48, branch
+`feat/end-effector-shm-provider`, until merged) and checks its message
+definitions against `1.layout.json`; an end effector driven over ROS 2
+attaches through the bridge `omakase_ee_bridge` of the D1's ROS 2 stack (not
+a public repository), itself a provider of this contract.
 
 ## Testing a provider without a robot: `d1fw-ee-harness`
 
@@ -418,7 +422,7 @@ A provider is a process of its own, started by the template unit
   writes the side's `<side>.env` naming the package's program, and the
   daemon's startup notice names the package to install; any other provider
   is named in `<side>.env` by an operator.
-- **The command line** every provider in the d1-ee repositories takes:
+- **The command line** every provider package shipped with the robot takes:
   `--side <a|b>`, `--root` and `--prefix` (the daemon's
   `[end_effector] shm_root_path` / `shm_prefix`), `--service` and, for a
   flange device, `--flange` (the services' bases), and `--state-period-ms`;
