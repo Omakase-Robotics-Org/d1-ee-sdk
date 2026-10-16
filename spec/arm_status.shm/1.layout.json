@@ -1,0 +1,269 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "MODE_ERROR": 6,
+    "MODE_IDLE": 1,
+    "MODE_POSITION": 2,
+    "MODE_PVT": 3,
+    "MODE_RELEASE": 5,
+    "MODE_TORQUE": 4,
+    "MODE_UNKNOWN": 0,
+    "SIDE_BRAKES_RELEASED": 1,
+    "SIDE_PROTOCOL_MISMATCH": 2,
+    "SIDE_STATIONARY": 4,
+    "STATUS_COMMAND_SERVED": 4,
+    "STATUS_FEEDBACK_STALE": 8,
+    "STATUS_LEASE_HELD": 2,
+    "STATUS_SOFT_KILLED": 1,
+    "STATUS_STREAM_STOPPED": 16,
+    "TOOL_CLIENT": 2,
+    "TOOL_CONFIG": 1,
+    "TOOL_NONE": 0,
+    "TRAJECTORY_CANCELLED": 3,
+    "TRAJECTORY_COMPLETED": 2,
+    "TRAJECTORY_FAILED": 4,
+    "TRAJECTORY_NONE": 0,
+    "TRAJECTORY_RUNNING": 1
+  },
+  "contract": "arm_status.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "HOLDER_LEN": 64,
+    "SIDES": 2
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "mode",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "error_code",
+          "offset": 4,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "flags",
+          "offset": 8,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "tool_source",
+          "offset": 12,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "tool_mass_kg",
+          "offset": 16,
+          "size": 8,
+          "type": "f64"
+        },
+        {
+          "name": "frame_miss_count",
+          "offset": 24,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "max_frame_miss_count",
+          "offset": 28,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "sys_cyc_miss_count",
+          "offset": 32,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "reserved",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        }
+      ],
+      "name": "SideStatus",
+      "size": 40,
+      "type_name": "omakase_arm_status_v1_SideStatus"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "feedback_seq",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "feedback_age_ns",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "lease_epoch",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "lease_expires_in_s",
+          "offset": 56,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "commands_accepted",
+          "offset": 64,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "commands_refused",
+          "offset": 72,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "commands_superseded",
+          "offset": 80,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "trajectory_id",
+          "offset": 88,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "flags",
+          "offset": 96,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "lease_class_rank",
+          "offset": 100,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "max_command_hz",
+          "offset": 104,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "feedback_stale_after_ms",
+          "offset": 108,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "trajectory_phase",
+          "offset": 112,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "period_ms",
+          "offset": 116,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "lease_holder",
+          "offset": 120,
+          "size": 64,
+          "type": "u8[64]"
+        },
+        {
+          "name": "sides",
+          "offset": 184,
+          "size": 80,
+          "type": "SideStatus[2]"
+        }
+      ],
+      "name": "Status",
+      "size": 264,
+      "type_name": "omakase_arm_status_v1_Status"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/arm",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 8,
+      "pattern": "publish_subscribe",
+      "payload": "Status",
+      "publisher": "daemon",
+      "subscriber": "reader",
+      "subscriber_max_buffer_size": 2,
+      "suffix": "status"
+    }
+  ],
+  "timing_ms": {
+    "STATUS_PERIOD_MS": 100
+  }
+}

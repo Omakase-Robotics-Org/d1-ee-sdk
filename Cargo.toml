@@ -35,6 +35,8 @@ tempfile = "3"
 # --- this repository ---
 d1fw-canfd = { path = "crates/d1fw-canfd" }
 d1fw-ee-shm-contract = { path = "crates/d1fw-ee-shm-contract" }
+d1fw-arm-shm-contract = { path = "crates/d1fw-arm-shm-contract" }
+d1-arm-loopbench = { path = "crates/d1-arm-loopbench" }
 d1fw-ee-provider = { path = "crates/d1fw-ee-provider" }
 d1fw-ee-hand = { path = "crates/d1fw-ee-hand" }
 d1fw-ee-harness = { path = "crates/d1fw-ee-harness" }

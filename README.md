@@ -16,6 +16,9 @@ and ships none of them.
 | `crates/d1fw-ee-provider` | the provider SDK: `Provider`, `serve`, `FlangeBus`, the unit and packaging conventions (`unit`), `TestProvider` (feature `test-support`) |
 | `crates/d1fw-ee-hand` | what a multi-finger hand provider is built from: the serialized link, the `hand.state/1` detail and its JSON Schema, the relayed channel as a bus, a simulated device, the provider process |
 | `crates/d1fw-ee-harness` | the daemon's side of both contracts for a provider's tests (`Host`), frame recording and golden comparison, the lifecycle conformance run, and `d1-ee-test-provider` |
+| `spec/arm_feedback.shm/1.md`, `spec/arm_status.shm/1.md`, `spec/arm_events.shm/1.md`, `spec/arm_command.shm/1.md` (each with `1.layout.json`) | the arm contracts: every arm controller feedback record as the daemon receives it, the daemon's view of the arms, what happens to them, and lease-gated joint commands at up to 1 kHz through the motion guard |
+| `crates/d1fw-arm-shm-contract` | the four arm contracts in Rust: names, messages, the command checks, iceoryx2 settings, the layout documents and their SHA-256 pins |
+| `crates/d1-arm-loopbench` | `d1-arm-loopbench`, a client of the arm contracts that streams commands at a chosen rate and reports the written rate, the daemon-added latency, the end-to-end latency and the controller's missed frames |
 | `deploy/systemd/d1-firmwared-ee-provider@.service` | the template unit that runs a side's provider (installed by the d1-firmwared package) |
 | `docs/end-effector-shm-interface.md` | the provider author's guide: why the contracts are shaped as they are, writing, testing, packaging and running a provider |
 
@@ -118,6 +121,27 @@ with the robot; their source is not public:
 | `d1-ee-linkerbot` | `linkerbot/o30` (LinkerHand O30) |
 | `d1-ee-leadshine` | `leadshine/dh116s` (Leadshine DH116S) |
 
+## The arms over shared memory
+
+Beside the end-effector contracts, `d1-firmwared` serves the arms over the
+same shared-memory root (`/run/d1-firmwared/iceoryx2/`, prefix
+`omakase_ee_`), under the base `omakase/arm`:
+
+| contract | service | direction |
+| --- | --- | --- |
+| `arm_feedback.shm/1` | `feedback` | daemon → readers: every controller feedback record (about 1 kHz), decoded and raw |
+| `arm_status.shm/1` | `status` | daemon → readers: mode, latch, lease, brakes, tools, feedback age, command counters; latched |
+| `arm_events.shm/1` | `events` | daemon → readers: controller state and error changes, frame-miss band, latch, lease, brakes, trajectory, guard refusals, approach slowing, emergency stops, command stream stop and resume |
+| `arm_command.shm/1` | `command` (+ event), `command_status` | client ↔ daemon: joint targets carrying the arm lease's token, written through the daemon's motion guard |
+
+A reader or client runs as the daemon's account (iceoryx2 0.9.3 creates
+every resource owner-only) and builds on `d1fw-arm-shm-contract`.
+`d1-arm-loopbench` is the reference client:
+
+```sh
+d1-arm-loopbench --rate-hz 200 --duration-s 60 --max-p99-us 500 --max-refused 0
+```
+
 ## Depending on the SDK
 
 A provider takes the crates as a git dependency pinned to a release tag:
@@ -140,8 +164,10 @@ compatible across releases.
   code, a bit or a service setting is a new major (`end_effector.shm/2`,
   type names `omakase_ee_v2_*`, a sibling `2.layout.json`), never an edit of
   a version-1 file (spec §6). Each `1.layout.json` is pinned by SHA-256 in
-  the contract crate (`LAYOUT_SHA256`), in `tools/check-layout-sha.sh`
-  (CI) and in d1-firmwared's own tests, so a change fails on every side.
+  its contract crate (`LAYOUT_SHA256`; the arm contracts'
+  `layout::*_LAYOUT_SHA256`), in `tools/check-layout-sha.sh` (CI) and in
+  d1-firmwared's own tests, so a change fails on every side. The six
+  contracts version independently.
 - **The crates.** `vMAJOR.MINOR.PATCH` tags, `0.x` SemVer: a breaking API
   change or a new feature raises the minor, a fix the patch. A provider and
   d1-firmwared each pin one tag; a new tag that keeps the contract major

@@ -288,6 +288,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "d1-arm-loopbench"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "d1fw-arm-shm-contract",
+ "iceoryx2",
+ "serde_json",
+]
+
+[[package]]
+name = "d1fw-arm-shm-contract"
+version = "0.1.0"
+dependencies = [
+ "d1fw-ee-shm-contract",
+ "iceoryx2",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "d1fw-canfd"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,248 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "CMD_SLOWED": 1,
+    "RESULT_ACCEPTED": 0,
+    "RESULT_BUSY": 7,
+    "RESULT_DEVICE": 9,
+    "RESULT_GUARD": 6,
+    "RESULT_INVALID": 1,
+    "RESULT_LEASE": 3,
+    "RESULT_LIMITS": 10,
+    "RESULT_NOT_READY": 5,
+    "RESULT_RATE": 8,
+    "RESULT_SOFT_KILLED": 4,
+    "RESULT_STALE": 2,
+    "SIDE_MASK_A": 1,
+    "SIDE_MASK_B": 2
+  },
+  "contract": "arm_command.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "DEFAULT_MAX_COMMAND_HZ": 1000,
+    "JOINTS": 7,
+    "MAX_COMMAND_HZ": 1000,
+    "MESSAGE_LEN": 128,
+    "SIDES": 2
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "lease_token",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "max_age_ns",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "sides",
+          "offset": 48,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 52,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "target_deg",
+          "offset": 56,
+          "size": 112,
+          "type": "f64[2][7]"
+        }
+      ],
+      "name": "Command",
+      "size": 168,
+      "type_name": "omakase_arm_command_v1_Command"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "client_instance_id",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "client_seq",
+          "offset": 40,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "client_mono_ns",
+          "offset": 48,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "rx_mono_ns",
+          "offset": 56,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "sent_mono_ns",
+          "offset": 64,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "accepted",
+          "offset": 72,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "refused",
+          "offset": 80,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "superseded",
+          "offset": 88,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "result",
+          "offset": 96,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 100,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "scale",
+          "offset": 104,
+          "size": 16,
+          "type": "f64[2]"
+        },
+        {
+          "name": "written_deg",
+          "offset": 120,
+          "size": 112,
+          "type": "f64[2][7]"
+        },
+        {
+          "name": "message",
+          "offset": 232,
+          "size": 128,
+          "type": "u8[128]"
+        }
+      ],
+      "name": "CommandStatus",
+      "size": 360,
+      "type_name": "omakase_arm_command_v1_CommandStatus"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/arm",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 0,
+      "max_publishers": 4,
+      "max_subscribers": 1,
+      "pattern": "publish_subscribe",
+      "payload": "Command",
+      "publisher": "client",
+      "subscriber": "daemon",
+      "subscriber_max_buffer_size": 4,
+      "suffix": "command"
+    },
+    {
+      "listener": "daemon",
+      "max_listeners": 1,
+      "max_notifiers": 4,
+      "notifier": "client",
+      "pattern": "event",
+      "suffix": "command"
+    },
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 8,
+      "pattern": "publish_subscribe",
+      "payload": "CommandStatus",
+      "publisher": "daemon",
+      "subscriber": "client",
+      "subscriber_max_buffer_size": 256,
+      "suffix": "command_status"
+    }
+  ],
+  "timing_ms": {
+    "DEFAULT_COMMAND_MAX_AGE_MS": 50,
+    "MAX_COMMAND_MAX_AGE_MS": 1000
+  }
+}
