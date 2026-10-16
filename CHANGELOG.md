@@ -14,6 +14,21 @@ versions follow `0.x` SemVer (README, "Versions").
   (p50 / p99 / max) and the controller's uptake of the writes (echo lag,
   consumption and feedback rates, targets in flight, saturation, pacing);
   `daemon_command_path` in the JSON report (`null` without it).
+- A hold, within `end_effector.shm/1` (layout SHA-256 unchanged): a `set`
+  whose `extra` is `{"hold": true}`, taken by a provider that lists `hold`
+  in `set_extra` whether or not it declares `openness`. The provider keeps
+  the last set-point its control sent, with its own command watchdog
+  disarmed, until the next `joints`, `set`, `stop`, fault or cleared fault;
+  a hold gives no authority back to actuators that are off (spec §4 rule 3
+  addendum and rule 10). `model::HOLD_EXTRA_KEY`, `SetCommand::hold`,
+  `is_hold` and `check_hold`; `check_set` and the SDK runtime accept and
+  check it; `Host::hold`; `conformance::lifecycle` drives a hold when the
+  declaration lists it; `TestRecord::holds`.
+
+### Changed
+
+- `State.tracking` is defined (spec §3.4): a streamed target taken and not
+  yet reached, cleared once the end effector has arrived and only holds.
 
 ## [0.2.0] - 2026-10-16
 

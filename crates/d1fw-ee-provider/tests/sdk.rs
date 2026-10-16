@@ -309,3 +309,94 @@ async fn an_undeclared_array_is_sent_as_nan() {
     assert_eq!(state.joint_count, 1);
     assert!(state.velocity.iter().all(|value| value.is_nan()));
 }
+
+/// A hold on the wire (§4 rule 10): refused by a provider that does not list
+/// `hold`, run by one that does even without `openness`, and refused when it
+/// carries anything but `{"hold": true}`.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hold_runs_only_where_it_is_declared_and_well_formed() {
+    let root = ShmRoot::scratch();
+    let _serving = serve(
+        Arc::new(TestProvider::default()),
+        ServeOptions::new(root.clone(), names()),
+    )
+    .await
+    .unwrap();
+    let daemon = RawDaemon::open(&root);
+    let target = daemon.target().await;
+    assert_eq!(
+        daemon
+            .command(&set(target, soon(), SetCommand::hold()))
+            .await
+            .map_err(|error| error.kind),
+        Err(ErrorKind::Refused)
+    );
+    drop(_serving);
+    drop(daemon);
+
+    let root = ShmRoot::scratch();
+    let mut descriptor = TestProvider::gripper_descriptor();
+    descriptor.capabilities.openness = false;
+    descriptor.capabilities.stroke_completion = false;
+    descriptor.capabilities.grip_presets.clear();
+    descriptor.capabilities.grip_torque = false;
+    descriptor.capabilities.set_extra = vec!["hold".to_owned()];
+    let provider = TestProvider::with_descriptor(descriptor);
+    let record = provider.record();
+    let _serving = serve(Arc::new(provider), ServeOptions::new(root.clone(), names()))
+        .await
+        .unwrap();
+    let daemon = RawDaemon::open(&root);
+    let target = daemon.target().await;
+    assert_eq!(
+        daemon
+            .command(&set(target, soon(), SetCommand::hold()))
+            .await,
+        Ok(())
+    );
+    assert_eq!(record.holds.load(Ordering::Relaxed), 1);
+    let mut extra_key = SetCommand::hold();
+    extra_key
+        .extra
+        .as_mut()
+        .unwrap()
+        .insert("speed".to_owned(), serde_json::json!(1));
+    let mut held_false = SetCommand::hold();
+    held_false
+        .extra
+        .as_mut()
+        .unwrap()
+        .insert("hold".to_owned(), serde_json::json!(false));
+    let waiting = SetCommand {
+        wait: true,
+        ..SetCommand::hold()
+    };
+    for (command, why) in [
+        (extra_key, "another extra key"),
+        (held_false, "hold false"),
+        (waiting, "wait"),
+    ] {
+        assert_eq!(
+            daemon
+                .command(&set(target, soon(), command))
+                .await
+                .map_err(|error| error.kind),
+            Err(ErrorKind::Unprocessable),
+            "{why}"
+        );
+    }
+    let openness = SetCommand {
+        openness: 0.5,
+        ..SetCommand::default()
+    };
+    assert_eq!(
+        daemon
+            .command(&set(target, soon(), openness))
+            .await
+            .map_err(|error| error.kind),
+        Err(ErrorKind::Refused),
+        "an openness without the capability"
+    );
+    assert_eq!(record.holds.load(Ordering::Relaxed), 1);
+    assert!(record.sets.lock().unwrap().is_empty());
+}

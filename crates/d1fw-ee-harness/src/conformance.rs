@@ -2,7 +2,7 @@
 //! §4 and §7), checked against a [`Host`]: it announces a valid declaration
 //! and becomes available; every verb its declaration lists is answered
 //! (`set`, `clear_fault` and `registers` on an idle device, then `joints`,
-//! then `stop`); killed with SIGKILL, the side turns unavailable for
+//! then a hold when `set_extra` lists `hold`, then `stop`); killed with SIGKILL, the side turns unavailable for
 //! want of a heartbeat and a stop raised meanwhile is refused; restarted,
 //! the same declaration is taken back; SIGTERM ends it with status 0.
 
@@ -72,6 +72,14 @@ pub async fn lifecycle(host: &Host, command: impl Fn() -> Command) -> Lifecycle 
             .await
             .expect("joint targets are taken");
         verbs.push("joints");
+    }
+    if capabilities
+        .set_extra
+        .iter()
+        .any(|key| key == model::HOLD_EXTRA_KEY)
+    {
+        host.hold().await.expect("a hold is answered");
+        verbs.push("hold");
     }
     host.stop().await.expect("a stop is answered");
     verbs.push("stop");

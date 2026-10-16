@@ -41,8 +41,8 @@ pub use d1fw_ee_shm_contract::{
     self as contract, CONTRACT, SCHEMA_VERSION,
     model::{
         Capabilities, ContractError, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing,
-        GripPreset, Joint, JointUnit, ProviderError, Register, Registers, SetCommand, State, Tick,
-        TickPhase, Tool,
+        GripPreset, HOLD_EXTRA_KEY, Joint, JointUnit, ProviderError, Register, Registers,
+        SetCommand, State, Tick, TickPhase, Tool,
     },
     names::{self, ServiceNames},
     ports,
@@ -85,6 +85,13 @@ pub trait Provider: Send + Sync + 'static {
     /// Drive to an openness. With `wait` and the `stroke_completion`
     /// capability, answer when the stroke concludes; otherwise once the
     /// target is on its way.
+    ///
+    /// A provider that lists [`HOLD_EXTRA_KEY`] in `set_extra` also receives
+    /// holds here ([`SetCommand::is_hold`], already checked): keep the
+    /// actuators holding where they are now, with the provider's own command
+    /// watchdog disarmed, until the next `joints`, `set` or `stop`; a hold
+    /// moves nothing towards a target and gives no authority back to
+    /// actuators that are off (§4 rule 10).
     async fn set(&self, command: SetCommand) -> Result<(), ProviderError>;
 
     /// Drive every joint to its target. Never waits for motion.
@@ -151,11 +158,27 @@ pub trait Provider: Send + Sync + 'static {
 ///
 /// # Errors
 ///
-/// [`ErrorKind::Refused`] without the `openness` capability;
+/// [`ErrorKind::Refused`] without the `openness` capability (a hold
+/// without [`HOLD_EXTRA_KEY`] in `set_extra`);
 /// [`ErrorKind::Unprocessable`] for a grip, torque or `extra` key the
-/// descriptor does not declare.
+/// descriptor does not declare, or a hold that carries anything else.
 pub fn check_set(descriptor: &Descriptor, command: &SetCommand) -> Result<(), ProviderError> {
     let capabilities = &descriptor.capabilities;
+    if command.is_hold() {
+        if !capabilities
+            .set_extra
+            .iter()
+            .any(|key| key == HOLD_EXTRA_KEY)
+        {
+            return Err(ProviderError::new(
+                ErrorKind::Refused,
+                "this end effector does not take a hold",
+            ));
+        }
+        return command
+            .check_hold()
+            .map_err(|why| ProviderError::new(ErrorKind::Unprocessable, why));
+    }
     if !capabilities.openness {
         return Err(ProviderError::new(
             ErrorKind::Refused,

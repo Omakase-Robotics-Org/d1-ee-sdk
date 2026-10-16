@@ -234,3 +234,43 @@ async fn the_test_provider_process_follows_the_lifecycle() {
         vec!["set", "clear_fault", "registers", "joints", "stop"]
     );
 }
+
+/// A hold (§4 rule 10) reaches a provider that lists `hold` in `set_extra`,
+/// openness declared or not, as a `set` carrying `{"hold": true}`; a
+/// provider that does not list it is refused before anything is sent.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hold_reaches_only_a_provider_that_declares_it() {
+    let root = ShmRoot::scratch();
+    let (host, record, _handle) = served(&root).await;
+    assert_eq!(status(&host.hold().await), 409, "no hold declared");
+    assert_eq!(record.holds.load(Ordering::Relaxed), 0);
+
+    let root = ShmRoot::scratch();
+    let host = Host::start(HostSettings::new("b", root.clone()));
+    let mut descriptor = TestProvider::gripper_descriptor();
+    descriptor.capabilities.openness = false;
+    descriptor.capabilities.stroke_completion = false;
+    descriptor.capabilities.grip_presets.clear();
+    descriptor.capabilities.grip_torque = false;
+    descriptor.capabilities.set_extra = vec!["hold".to_owned()];
+    let provider = TestProvider::with_descriptor(descriptor);
+    let record = provider.record();
+    let _handle = d1fw_ee_provider::serve(
+        Arc::new(provider),
+        ServeOptions::new(root.clone(), host.names().clone()),
+    )
+    .await
+    .expect("serve the holding provider");
+    host.until_available(WAIT).await;
+    assert_eq!(status(&host.hold().await), 200);
+    assert_eq!(record.holds.load(Ordering::Relaxed), 1);
+    assert!(
+        record.sets.lock().unwrap().is_empty(),
+        "a hold is not a set"
+    );
+    assert_eq!(
+        status(&host.set(&SetRequest::openness(0.5)).await),
+        409,
+        "an openness is still refused without the capability"
+    );
+}
