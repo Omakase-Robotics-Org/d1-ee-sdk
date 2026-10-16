@@ -1,0 +1,21 @@
+[package]
+name = "d1-arm-loopbench"
+description = "A client of the D1 arm contracts that streams joint commands over arm_command.shm/1 at a chosen rate while reading arm_feedback.shm/1, and reports the achieved rate, the daemon-added latency and the controller's missed frames"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "d1-arm-loopbench"
+path = "src/bin/d1_arm_loopbench.rs"
+
+[dependencies]
+d1fw-arm-shm-contract.workspace = true
+iceoryx2.workspace = true
+serde_json.workspace = true
+clap.workspace = true

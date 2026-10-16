@@ -1,0 +1,19 @@
+[package]
+name = "d1fw-arm-shm-contract"
+description = "D1 firmware: the arm contracts arm_feedback.shm/1, arm_status.shm/1, arm_events.shm/1 and arm_command.shm/1 — iceoryx2 service names, fixed-size message layouts and their pins, shared by d1-firmwared and every arm client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+d1fw-ee-shm-contract.workspace = true
+iceoryx2.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true

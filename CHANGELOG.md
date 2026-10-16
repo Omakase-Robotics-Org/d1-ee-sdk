@@ -4,6 +4,23 @@ All notable changes to `d1-ee-sdk` are recorded here, newest first. The
 format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/);
 versions follow `0.x` SemVer (README, "Versions").
 
+## [Unreleased]
+
+### Added
+
+- The arm contracts `arm_feedback.shm/1` (layout SHA-256
+  `f9bbac48eff4d24449d66f0219ee32960ecf58cf39aebc4d49b522909758b65a`),
+  `arm_status.shm/1` (`c7d6685594206be6d58ed7d7f28fe5701eaf3818dc7d40d45156143c621868fb`),
+  `arm_events.shm/1` (`2377745c6660434a2b805afb5feb21b7299a38cbfa03928b3e53a1d87142d619`)
+  and `arm_command.shm/1` (`987222e48bb079782e01a5d541b0bf19017a67fdf53dbacbc4172d278493c4be`),
+  as d1-firmwared serves them, with their Rust crate `d1fw-arm-shm-contract`
+  (iceoryx2 `=0.9.3`, the end-effector contracts' root and header).
+- `d1-arm-loopbench`: a client of the arm contracts that streams
+  `arm_command.shm/1` at a chosen rate and reports the written rate, the
+  daemon-added and end-to-end latency, the controller's frame-miss counters
+  and every refusal, with gates for a robot run.
+- `tools/check-layout-sha.sh` checks the four arm layouts' pins too.
+
 ## [0.1.0]
 
 ### Added

@@ -1,0 +1,481 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "FEEDBACK_PROTOCOL_MISMATCH": 1,
+    "FEEDBACK_RAW_TRUNCATED": 2,
+    "PROTOCOL_FX": 1,
+    "PROTOCOL_FY": 2,
+    "PROTOCOL_UNKNOWN": 0,
+    "RAW_DCSS_1428": 1,
+    "STATE_ERROR": 100,
+    "STATE_IDLE": 0,
+    "STATE_POSITION": 1,
+    "STATE_PVT": 2,
+    "STATE_RELEASE": 4,
+    "STATE_TORQUE": 3,
+    "STATE_TO_IDLE": 109,
+    "STATE_TO_POSITION": 101,
+    "STATE_TO_PVT": 102,
+    "STATE_TO_RELEASE": 104,
+    "STATE_TO_TORQUE": 103
+  },
+  "contract": "arm_feedback.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "CART_DOF": 6,
+    "FRAME_MISS_HEALTHY_BELOW": 20,
+    "JOINTS": 7,
+    "PARA_NAME_LEN": 32,
+    "RAW_CAPACITY": 2048,
+    "SIDES": 2,
+    "TOOL_DYN_LEN": 10
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 4,
+      "fields": [
+        {
+          "name": "cur_state",
+          "offset": 0,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "cmd_state",
+          "offset": 4,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "error_code",
+          "offset": 8,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "imp_type",
+          "offset": 12,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "out_frame_serial",
+          "offset": 16,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "in_frame_serial",
+          "offset": 20,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "sys_cyc",
+          "offset": 24,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "cart_kd_type",
+          "offset": 28,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "force_fb_type",
+          "offset": 32,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "force_type",
+          "offset": 36,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "frame_miss_count",
+          "offset": 40,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "max_frame_miss_count",
+          "offset": 42,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "sys_cyc_miss_count",
+          "offset": 44,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "max_sys_cyc_miss_count",
+          "offset": 46,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "vel_ratio",
+          "offset": 48,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "acc_ratio",
+          "offset": 50,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "tip_di",
+          "offset": 52,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "low_speed",
+          "offset": 53,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "traj_state",
+          "offset": 54,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "reserved",
+          "offset": 55,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "pos",
+          "offset": 56,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "vel",
+          "offset": 84,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "pos_e",
+          "offset": 112,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "cmd_echo",
+          "offset": 140,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "current",
+          "offset": 168,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "torque",
+          "offset": 196,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "temperature",
+          "offset": 224,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "est_friction",
+          "offset": 252,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "est_friction_dot",
+          "offset": 280,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "est_force",
+          "offset": 308,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "accepted_cmd",
+          "offset": 336,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "joint_k",
+          "offset": 364,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "joint_d",
+          "offset": 392,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "force_pidul",
+          "offset": 420,
+          "size": 28,
+          "type": "f32[7]"
+        },
+        {
+          "name": "est_cart_fn",
+          "offset": 448,
+          "size": 24,
+          "type": "f32[6]"
+        },
+        {
+          "name": "cart_k",
+          "offset": 472,
+          "size": 24,
+          "type": "f32[6]"
+        },
+        {
+          "name": "cart_d",
+          "offset": 496,
+          "size": 24,
+          "type": "f32[6]"
+        },
+        {
+          "name": "force_dir",
+          "offset": 520,
+          "size": 24,
+          "type": "f32[6]"
+        },
+        {
+          "name": "tool_kine",
+          "offset": 544,
+          "size": 24,
+          "type": "f32[6]"
+        },
+        {
+          "name": "tool_dyn",
+          "offset": 568,
+          "size": 40,
+          "type": "f32[10]"
+        },
+        {
+          "name": "cart_kn",
+          "offset": 608,
+          "size": 4,
+          "type": "f32"
+        },
+        {
+          "name": "cart_dn",
+          "offset": 612,
+          "size": 4,
+          "type": "f32"
+        },
+        {
+          "name": "force_adj_lmt",
+          "offset": 616,
+          "size": 4,
+          "type": "f32"
+        },
+        {
+          "name": "force_cmd",
+          "offset": 620,
+          "size": 4,
+          "type": "f32"
+        }
+      ],
+      "name": "SideFeedback",
+      "size": 624,
+      "type_name": "omakase_arm_feedback_v1_SideFeedback"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "rx_mono_ns",
+          "offset": 32,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "controller_version",
+          "offset": 40,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "protocol",
+          "offset": 44,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "flags",
+          "offset": 48,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "raw_format",
+          "offset": 52,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "raw_len",
+          "offset": 56,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "para_type",
+          "offset": 60,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "para_ins",
+          "offset": 61,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "name": "para_cmd_serial",
+          "offset": 62,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "para_ret_serial",
+          "offset": 64,
+          "size": 2,
+          "type": "i16"
+        },
+        {
+          "name": "reserved",
+          "offset": 66,
+          "size": 2,
+          "type": "u16"
+        },
+        {
+          "name": "para_value_i",
+          "offset": 68,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "para_value_f",
+          "offset": 72,
+          "size": 4,
+          "type": "f32"
+        },
+        {
+          "name": "reserved2",
+          "offset": 76,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "para_name",
+          "offset": 80,
+          "size": 32,
+          "type": "u8[32]"
+        },
+        {
+          "name": "sides",
+          "offset": 112,
+          "size": 1248,
+          "type": "SideFeedback[2]"
+        },
+        {
+          "name": "raw",
+          "offset": 1360,
+          "size": 2048,
+          "type": "u8[2048]"
+        }
+      ],
+      "name": "Feedback",
+      "size": 3408,
+      "type_name": "omakase_arm_feedback_v1_Feedback"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/arm",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 1,
+      "max_publishers": 1,
+      "max_subscribers": 8,
+      "pattern": "publish_subscribe",
+      "payload": "Feedback",
+      "publisher": "daemon",
+      "subscriber": "reader",
+      "subscriber_max_buffer_size": 256,
+      "suffix": "feedback"
+    }
+  ]
+}

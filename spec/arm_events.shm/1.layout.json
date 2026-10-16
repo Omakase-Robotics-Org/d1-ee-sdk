@@ -1,0 +1,139 @@
+{
+  "byte_order": "little",
+  "codes": {
+    "EVENT_APPROACH_SLOWED": 11,
+    "EVENT_BRAKES_ENGAGED": 9,
+    "EVENT_BRAKES_RELEASED": 8,
+    "EVENT_CONTROLLER_ERROR": 2,
+    "EVENT_CONTROLLER_STATE": 1,
+    "EVENT_EMERGENCY_STOP": 14,
+    "EVENT_FRAME_MISS_HIGH": 3,
+    "EVENT_FRAME_MISS_NORMAL": 4,
+    "EVENT_GUARD_REFUSED": 10,
+    "EVENT_LEASE_CHANGED": 7,
+    "EVENT_SOFT_KILL_LATCHED": 5,
+    "EVENT_SOFT_KILL_RELEASED": 6,
+    "EVENT_STREAM_RESUMED": 13,
+    "EVENT_STREAM_STOPPED": 12,
+    "EVENT_TRAJECTORY_ENDED": 16,
+    "EVENT_TRAJECTORY_STARTED": 15,
+    "SIDE_MASK_A": 1,
+    "SIDE_MASK_B": 2
+  },
+  "contract": "arm_events.shm/1",
+  "iceoryx2": "0.9.3",
+  "limits": {
+    "EVENT_VALUES": 4,
+    "TEXT_LEN": 128
+  },
+  "messages": [
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "schema_version",
+          "offset": 0,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "reserved",
+          "offset": 4,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "instance_id",
+          "offset": 8,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "seq",
+          "offset": 16,
+          "size": 8,
+          "type": "u64"
+        },
+        {
+          "name": "mono_ns",
+          "offset": 24,
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "name": "Header",
+      "size": 32,
+      "type_name": "omakase_ee_v1_Header"
+    },
+    {
+      "align": 8,
+      "fields": [
+        {
+          "name": "header",
+          "offset": 0,
+          "size": 32,
+          "type": "Header"
+        },
+        {
+          "name": "kind",
+          "offset": 32,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "sides",
+          "offset": 36,
+          "size": 4,
+          "type": "u32"
+        },
+        {
+          "name": "code",
+          "offset": 40,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "joint",
+          "offset": 44,
+          "size": 4,
+          "type": "i32"
+        },
+        {
+          "name": "values",
+          "offset": 48,
+          "size": 32,
+          "type": "f64[4]"
+        },
+        {
+          "name": "text",
+          "offset": 80,
+          "size": 128,
+          "type": "u8[128]"
+        }
+      ],
+      "name": "Event",
+      "size": 208,
+      "type_name": "omakase_arm_events_v1_Event"
+    }
+  ],
+  "root": {
+    "default_base": "omakase/arm",
+    "prefix": "omakase_ee_",
+    "root_path": "/run/d1-firmwared/iceoryx2/"
+  },
+  "schema_version": 1,
+  "services": [
+    {
+      "enable_safe_overflow": true,
+      "history_size": 64,
+      "max_publishers": 1,
+      "max_subscribers": 8,
+      "pattern": "publish_subscribe",
+      "payload": "Event",
+      "publisher": "daemon",
+      "subscriber": "reader",
+      "subscriber_max_buffer_size": 256,
+      "suffix": "events"
+    }
+  ]
+}
