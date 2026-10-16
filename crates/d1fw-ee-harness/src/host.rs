@@ -538,6 +538,35 @@ impl Host {
         self.command(Command::Set(command), target, timeout).await
     }
 
+    /// Hold the end effector where it is (§4 rule 10), as d1-firmwared's
+    /// `POST /v1/end_effectors/{side}/hold` does: a `set` whose `extra` is
+    /// `{"hold": true}`, for a provider that lists the key in `set_extra`.
+    ///
+    /// # Errors
+    ///
+    /// [`HostErrorKind::Unavailable`] with no declaration or no live
+    /// provider; [`HostErrorKind::Refused`] when the declaration does not
+    /// list `hold`; the provider's own refusal or failure;
+    /// [`HostErrorKind::Timeout`].
+    pub async fn hold(&self) -> Result<(), HostError> {
+        let descriptor = self
+            .shared
+            .descriptor()
+            .ok_or_else(|| self.shared.unavailable())?;
+        if !descriptor
+            .capabilities
+            .set_extra
+            .iter()
+            .any(|key| key == model::HOLD_EXTRA_KEY)
+        {
+            return Err(not_capable(descriptor, "hold"));
+        }
+        let target = self.shared.device()?;
+        self.take_slot().await;
+        self.command(Command::Set(SetCommand::hold()), target, REQUEST_TIMEOUT)
+            .await
+    }
+
     fn validate_set(&self, request: &SetRequest) -> Result<SetCommand, HostError> {
         let descriptor = self
             .shared

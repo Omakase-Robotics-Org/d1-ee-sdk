@@ -4,6 +4,26 @@ All notable changes to `d1-ee-sdk` are recorded here, newest first. The
 format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/);
 versions follow `0.x` SemVer (README, "Versions").
 
+## [Unreleased]
+
+### Added
+
+- A hold, within `end_effector.shm/1` (layout SHA-256 unchanged): a `set`
+  whose `extra` is `{"hold": true}`, taken by a provider that lists `hold`
+  in `set_extra` whether or not it declares `openness`. The provider keeps
+  the last set-point its control sent, with its own command watchdog
+  disarmed, until the next `joints`, `set`, `stop`, fault or cleared fault;
+  a hold gives no authority back to actuators that are off (spec §4 rule 3
+  addendum and rule 10). `model::HOLD_EXTRA_KEY`, `SetCommand::hold`,
+  `is_hold` and `check_hold`; `check_set` and the SDK runtime accept and
+  check it; `Host::hold`; `conformance::lifecycle` drives a hold when the
+  declaration lists it; `TestRecord::holds`.
+
+### Changed
+
+- `State.tracking` is defined (spec §3.4): a streamed target taken and not
+  yet reached, cleared once the end effector has arrived and only holds.
+
 ## [0.1.0]
 
 ### Added

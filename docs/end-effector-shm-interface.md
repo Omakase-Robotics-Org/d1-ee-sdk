@@ -186,6 +186,14 @@ The full text is the spec; the decisions behind it:
   502, 504 as for any driver). `joints` is a stream: the REST call returns
   once the target is published, a newer target supersedes an older one
   anywhere on the way, and the provider takes only the newest per wake-up.
+- **A hold is a `set` with `extra` `{"hold": true}`.** A provider whose
+  own command watchdog would end a hold when targets stop (a hand that has
+  no watchdog in its firmware) lists `hold` in `set_extra`; the daemon's
+  `POST /v1/end_effectors/{side}/hold` then sends it, and the provider
+  keeps the last set-point it sent, watchdog disarmed, until the next
+  command (spec §4 rules 3 and 10). It needs no `openness` capability and
+  changes no layout, code or bit of version 1. A side whose provider does
+  not list it is answered `{"held": false}` without a request.
 - **Nothing executes late.** A `set` carries a start deadline (issue + 250
   ms) and the instance and descriptor generation it was validated against; a
   provider answers `stale_target` instead of executing one that misses any

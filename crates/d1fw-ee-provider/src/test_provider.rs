@@ -44,6 +44,8 @@ pub struct TestRecord {
     pub joints: Mutex<Vec<(Vec<f64>, u64)>>,
     /// How many stops arrived.
     pub stops: AtomicUsize,
+    /// How many holds arrived (a hold is not recorded in `sets`).
+    pub holds: AtomicUsize,
     /// How many fault clears arrived.
     pub clear_faults: AtomicUsize,
     /// Every register read's id list.
@@ -163,6 +165,11 @@ impl Provider for TestProvider {
     async fn set(&self, command: SetCommand) -> Result<(), ProviderError> {
         if let Some(error) = self.record.fail_next_set.lock().expect("lock").take() {
             return Err(error);
+        }
+        if command.is_hold() {
+            // Held where it is: nothing moves.
+            self.record.holds.fetch_add(1, Ordering::Relaxed);
+            return Ok(());
         }
         let wait = command.wait;
         let openness = command.openness;

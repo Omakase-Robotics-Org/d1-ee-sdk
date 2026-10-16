@@ -23,6 +23,12 @@ pub const MAX_SET_TIMEOUT_MS: u32 = 60_000;
 /// The highest `max_command_hz` a descriptor may name.
 pub const MAX_COMMAND_HZ: u32 = 10_000;
 
+/// The `set_extra` key of a hold (§4 rule 10): a provider that lists it
+/// takes a `set` whose `extra` is exactly `{"hold": true}` as "keep the
+/// actuators holding where they are now, with no command watchdog of your
+/// own, until the next command", whether or not it declares `openness`.
+pub const HOLD_EXTRA_KEY: &str = "hold";
+
 /// Why a message could not be built, read or exchanged.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ContractError {
@@ -1229,6 +1235,52 @@ pub struct SetCommand {
     pub torque_nm: Option<f64>,
     /// Driver-scoped parameters, only keys the descriptor lists.
     pub extra: Option<Map<String, Value>>,
+}
+
+impl SetCommand {
+    /// A hold (§4 rule 10): `extra` `{"hold": true}`, no wait, no grip,
+    /// no torque, and an openness of `0.0` that the provider ignores.
+    #[must_use]
+    pub fn hold() -> Self {
+        let mut extra = Map::new();
+        extra.insert(HOLD_EXTRA_KEY.to_owned(), Value::Bool(true));
+        Self {
+            openness: 0.0,
+            wait: false,
+            grip: None,
+            torque_nm: None,
+            extra: Some(extra),
+        }
+    }
+
+    /// Whether this `set` names the hold key at all (a well-formed hold is
+    /// checked by [`SetCommand::check_hold`]).
+    #[must_use]
+    pub fn is_hold(&self) -> bool {
+        self.extra
+            .as_ref()
+            .is_some_and(|extra| extra.contains_key(HOLD_EXTRA_KEY))
+    }
+
+    /// Check a `set` that names the hold key: `extra` is exactly
+    /// `{"hold": true}`, without wait, grip or torque.
+    ///
+    /// # Errors
+    ///
+    /// A sentence naming what else the request carries.
+    pub fn check_hold(&self) -> Result<(), String> {
+        let extra = self.extra.as_ref();
+        if extra.and_then(|extra| extra.get(HOLD_EXTRA_KEY)) != Some(&Value::Bool(true)) {
+            return Err("a hold is extra {\"hold\": true}".to_owned());
+        }
+        if extra.is_some_and(|extra| extra.len() != 1) {
+            return Err("a hold carries no other extra key".to_owned());
+        }
+        if self.wait || self.grip.is_some() || self.torque_nm.is_some() {
+            return Err("a hold takes no wait, grip or torque_nm".to_owned());
+        }
+        Ok(())
+    }
 }
 
 /// What a `command` request asks for.
