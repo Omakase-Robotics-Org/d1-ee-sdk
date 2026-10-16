@@ -18,6 +18,9 @@
 //!   `max_frame_miss_count` over the run) and the feedback rate and gaps;
 //! - every refusal, by reason.
 //!
+//! With `--feedback-only` it only reads `arm_feedback.shm/1`, spinning on
+//! it, and reports the feedback rate, its gaps and its publish latency.
+//!
 //! The same binary runs against the simulated daemon (`d1-firmwared run
 //! --backend sim`) and against a robot. With the `--max-*`/`--min-*` gates
 //! it exits 1 when one is not met. It runs as the daemon's account, which
@@ -115,6 +118,20 @@ pub struct Args {
     /// Gate: the most refused commands acceptable.
     #[arg(long)]
     pub max_refused: Option<u64>,
+    /// Only read `arm_feedback.shm/1` for `--duration-s`, spinning on it,
+    /// and report its rate, gaps and publish latency: no lease, no command.
+    #[arg(long)]
+    pub feedback_only: bool,
+    /// Gate: the lowest acceptable feedback rate, records per second.
+    #[arg(long)]
+    pub min_feedback_hz: Option<f64>,
+    /// Gate: the highest acceptable feedback publish latency p99 (from the
+    /// daemon receiving a record to this reader holding it), microseconds.
+    #[arg(long)]
+    pub max_feedback_p99_us: Option<u64>,
+    /// Gate: the most feedback records lost (gaps in `seq`).
+    #[arg(long)]
+    pub max_feedback_gaps: Option<u64>,
 }
 
 /// Run the bench with the process's command line and print the report.
@@ -218,6 +235,10 @@ pub struct Report {
     pub sys_cyc_miss_max: [i64; SIDES],
     /// `EVENT_STREAM_STOPPED` events seen.
     pub stream_stops: u64,
+    /// Feedback publish latency: the daemon receiving a record to this
+    /// reader holding it (measured with `--feedback-only`, where the reader
+    /// spins).
+    pub feedback_latency: Spread,
 }
 
 impl Report {
@@ -299,6 +320,18 @@ impl Report {
                 self.stream_stops,
             ),
         );
+        if self.feedback_latency.count > 0 {
+            line(
+                &mut out,
+                format!(
+                    "feedback publish latency (received by the daemon -> held by this reader): p50 {} us, p99 {} us, max {} us ({} samples)",
+                    self.feedback_latency.p50,
+                    self.feedback_latency.p99,
+                    self.feedback_latency.max,
+                    self.feedback_latency.count
+                ),
+            );
+        }
         out
     }
 
@@ -324,6 +357,7 @@ impl Report {
             "frame_miss_high_water_rise": self.frame_miss_high_water_rise,
             "sys_cyc_miss_max": self.sys_cyc_miss_max,
             "stream_stops": self.stream_stops,
+            "feedback_latency": self.feedback_latency.json(),
         })
     }
 
@@ -365,7 +399,29 @@ impl Report {
         {
             failures.push(format!("{} commands refused > {max}", self.refused_total()));
         }
-        if self.daemon.count == 0 {
+        let feedback_hz = self.feedback_records as f64 / self.elapsed_s.max(1e-9);
+        if let Some(min) = args.min_feedback_hz
+            && feedback_hz < min
+        {
+            failures.push(format!("feedback {feedback_hz:.1}/s < {min}/s"));
+        }
+        if let Some(max) = args.max_feedback_p99_us
+            && self.feedback_latency.p99 > max
+        {
+            failures.push(format!(
+                "feedback publish latency p99 {} us > {max} us",
+                self.feedback_latency.p99
+            ));
+        }
+        if let Some(max) = args.max_feedback_gaps
+            && self.feedback_gaps > max
+        {
+            failures.push(format!(
+                "{} feedback records lost > {max}",
+                self.feedback_gaps
+            ));
+        }
+        if !args.feedback_only && self.daemon.count == 0 {
             failures.push("no command was written".to_owned());
         }
         failures
@@ -561,6 +617,9 @@ pub fn run(args: &Args) -> Result<Report, String> {
     let initial_high_water: [i64; SIDES] =
         std::array::from_fn(|side| i64::from(first.sides[side].max_frame_miss_count));
 
+    if args.feedback_only {
+        return Ok(read_feedback(args, &feedback, &first, initial_high_water));
+    }
     let lease = Lease::take(args)?;
     // Events before this point are not this run's.
     while events
@@ -708,6 +767,46 @@ pub fn run(args: &Args) -> Result<Report, String> {
     report.frame_miss_high_water_rise =
         std::array::from_fn(|side| high_water[side] - initial_high_water[side]);
     Ok(report)
+}
+
+/// `--feedback-only`: spin on the feedback for `args.duration_s`.
+fn read_feedback(
+    args: &Args,
+    feedback: &iceoryx2::port::subscriber::Subscriber<ipc::Service, Feedback, ()>,
+    first: &Feedback,
+    initial_high_water: [i64; SIDES],
+) -> Report {
+    let mut report = Report::default();
+    let mut latencies = Vec::new();
+    let mut last_seq = first.header.seq;
+    let mut high_water = initial_high_water;
+    let duration = Duration::from_secs_f64(args.duration_s);
+    let started = Instant::now();
+    while started.elapsed() < duration {
+        match feedback.receive() {
+            Ok(Some(record)) => {
+                let now = d1fw_arm_shm_contract::clock::monotonic_ns();
+                latencies.push(now.saturating_sub(record.rx_mono_ns) / 1_000);
+                report.feedback_records += 1;
+                report.feedback_gaps += record.header.seq.saturating_sub(last_seq + 1);
+                last_seq = record.header.seq;
+                for (side, arm) in record.sides.iter().enumerate() {
+                    report.frame_miss_max[side] =
+                        report.frame_miss_max[side].max(i64::from(arm.frame_miss_count));
+                    report.sys_cyc_miss_max[side] =
+                        report.sys_cyc_miss_max[side].max(i64::from(arm.sys_cyc_miss_count));
+                    high_water[side] = high_water[side].max(i64::from(arm.max_frame_miss_count));
+                }
+            }
+            Ok(None) => std::thread::yield_now(),
+            Err(_) => break,
+        }
+    }
+    report.elapsed_s = started.elapsed().as_secs_f64();
+    report.feedback_latency = Spread::of(latencies);
+    report.frame_miss_high_water_rise =
+        std::array::from_fn(|side| high_water[side] - initial_high_water[side]);
+    report
 }
 
 #[cfg(test)]

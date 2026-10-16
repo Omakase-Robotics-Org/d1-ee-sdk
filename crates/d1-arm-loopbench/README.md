@@ -22,6 +22,12 @@ prints:
   `sys_cyc_miss_count` per arm, the rise of `max_frame_miss_count`, and the
   stream stops.
 
+With `--feedback-only` it takes no lease and sends nothing: it spins on
+`arm_feedback.shm/1` for `--duration-s` and reports the feedback rate, the
+gaps in `seq`, the publish latency (from the daemon receiving a record to
+this reader holding it) and the frame-miss counters, gated by
+`--min-feedback-hz`, `--max-feedback-p99-us` and `--max-feedback-gaps`.
+
 `--json <file>` writes the same report as JSON. The gates
 `--min-rate-hz`, `--max-p99-us`, `--max-max-us`, `--max-frame-miss` and
 `--max-refused` make it print `FAIL …` and exit 1 when one is not met
