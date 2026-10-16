@@ -14,10 +14,18 @@ versions follow `0.x` SemVer (README, "Versions").
   the last set-point its control sent, with its own command watchdog
   disarmed, until the next `joints`, `set`, `stop`, fault or cleared fault;
   a hold gives no authority back to actuators that are off (spec §4 rule 3
-  addendum and rule 10). `model::HOLD_EXTRA_KEY`, `SetCommand::hold`,
-  `is_hold` and `check_hold`; `check_set` and the SDK runtime accept and
+  addendum and rule 10). `model::HOLD_EXTRA_KEY`, `SetCommand::hold` and
+  `is_hold`; `check_set` and the SDK runtime accept and
   check it; `Host::hold`; `conformance::lifecycle` drives a hold when the
   declaration lists it; `TestRecord::holds`.
+
+- A home, the same way: a `set` whose `extra` is `{"home": true}`, taken by
+  a provider that lists `home` in `set_extra`, drives to the provider's own
+  home pose through its normal control and then holds (spec §4 rule 11).
+  `model::HOME_EXTRA_KEY`, `KEYED_SETS`, `SetCommand::home`, `keyed`,
+  `keyed_verb`, `is_home`, `check_keyed` (which replaces `check_hold`);
+  `Host::home`; the lifecycle drives a home when listed;
+  `TestRecord::homes`.
 
 ### Changed
 

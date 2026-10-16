@@ -194,6 +194,12 @@ The full text is the spec; the decisions behind it:
   command (spec §4 rules 3 and 10). It needs no `openness` capability and
   changes no layout, code or bit of version 1. A side whose provider does
   not list it is answered `{"held": false}` without a request.
+- **A home is a `set` with `extra` `{"home": true}`.** A provider that
+  lists `home` in `set_extra` drives to its own home pose through its
+  normal control and then holds there (spec §4 rule 11); the daemon's
+  `POST /v1/end_effectors/{side}/home` sends it. For a provider without it
+  that declares `openness`, the daemon opens instead; for one with neither
+  it answers `{"homing": false}`.
 - **Nothing executes late.** A `set` carries a start deadline (issue + 250
   ms) and the instance and descriptor generation it was validated against; a
   provider answers `stale_target` instead of executing one that misses any

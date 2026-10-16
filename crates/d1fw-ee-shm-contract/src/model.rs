@@ -29,6 +29,16 @@ pub const MAX_COMMAND_HZ: u32 = 10_000;
 /// own, until the next command", whether or not it declares `openness`.
 pub const HOLD_EXTRA_KEY: &str = "hold";
 
+/// The `set_extra` key of a home (§4 rule 11): a provider that lists it
+/// takes a `set` whose `extra` is exactly `{"home": true}` as "drive to your
+/// own home pose through your normal control, then hold there", whether or
+/// not it declares `openness`.
+pub const HOME_EXTRA_KEY: &str = "home";
+
+/// The keyed `set`s: a `set` whose `extra` names one of these is that verb,
+/// not an openness.
+pub const KEYED_SETS: [&str; 2] = [HOLD_EXTRA_KEY, HOME_EXTRA_KEY];
+
 /// Why a message could not be built, read or exchanged.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ContractError {
@@ -1238,12 +1248,13 @@ pub struct SetCommand {
 }
 
 impl SetCommand {
-    /// A hold (§4 rule 10): `extra` `{"hold": true}`, no wait, no grip,
-    /// no torque, and an openness of `0.0` that the provider ignores.
+    /// The keyed `set` `key` (one of [`KEYED_SETS`]): `extra` `{key: true}`,
+    /// no wait, no grip, no torque, and an openness of `0.0` that the
+    /// provider ignores.
     #[must_use]
-    pub fn hold() -> Self {
+    pub fn keyed(key: &str) -> Self {
         let mut extra = Map::new();
-        extra.insert(HOLD_EXTRA_KEY.to_owned(), Value::Bool(true));
+        extra.insert(key.to_owned(), Value::Bool(true));
         Self {
             openness: 0.0,
             wait: false,
@@ -1253,31 +1264,57 @@ impl SetCommand {
         }
     }
 
-    /// Whether this `set` names the hold key at all (a well-formed hold is
-    /// checked by [`SetCommand::check_hold`]).
+    /// A hold (§4 rule 10).
     #[must_use]
-    pub fn is_hold(&self) -> bool {
-        self.extra
-            .as_ref()
-            .is_some_and(|extra| extra.contains_key(HOLD_EXTRA_KEY))
+    pub fn hold() -> Self {
+        Self::keyed(HOLD_EXTRA_KEY)
     }
 
-    /// Check a `set` that names the hold key: `extra` is exactly
-    /// `{"hold": true}`, without wait, grip or torque.
+    /// A home (§4 rule 11).
+    #[must_use]
+    pub fn home() -> Self {
+        Self::keyed(HOME_EXTRA_KEY)
+    }
+
+    /// The keyed verb this `set` names, if its `extra` names one (a
+    /// well-formed one is checked by [`SetCommand::check_keyed`]).
+    #[must_use]
+    pub fn keyed_verb(&self) -> Option<&'static str> {
+        let extra = self.extra.as_ref()?;
+        KEYED_SETS.into_iter().find(|key| extra.contains_key(*key))
+    }
+
+    /// Whether this `set` is a hold.
+    #[must_use]
+    pub fn is_hold(&self) -> bool {
+        self.keyed_verb() == Some(HOLD_EXTRA_KEY)
+    }
+
+    /// Whether this `set` is a home.
+    #[must_use]
+    pub fn is_home(&self) -> bool {
+        self.keyed_verb() == Some(HOME_EXTRA_KEY)
+    }
+
+    /// Check a keyed `set`: `extra` is exactly `{key: true}`, without wait,
+    /// grip or torque.
     ///
     /// # Errors
     ///
     /// A sentence naming what else the request carries.
-    pub fn check_hold(&self) -> Result<(), String> {
+    pub fn check_keyed(&self) -> Result<(), String> {
+        let Some(key) = self.keyed_verb() else {
+            return Err("not a keyed set".to_owned());
+        };
         let extra = self.extra.as_ref();
-        if extra.and_then(|extra| extra.get(HOLD_EXTRA_KEY)) != Some(&Value::Bool(true)) {
-            return Err("a hold is extra {\"hold\": true}".to_owned());
+        if extra.and_then(|extra| extra.get(key)) != Some(&Value::Bool(true)) {
+            return Err(format!("a {key} is extra {{\"{key}\": true}}"));
         }
         if extra.is_some_and(|extra| extra.len() != 1) {
-            return Err("a hold carries no other extra key".to_owned());
+            return Err(format!("a {key} carries no other extra key"));
         }
         if self.wait || self.grip.is_some() || self.torque_nm.is_some() {
-            return Err("a hold takes no wait, grip or torque_nm".to_owned());
+            return Err(format!("a {key} takes no wait, grip or torque_nm"));
         }
         Ok(())
     }

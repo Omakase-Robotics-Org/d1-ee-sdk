@@ -549,22 +549,36 @@ impl Host {
     /// list `hold`; the provider's own refusal or failure;
     /// [`HostErrorKind::Timeout`].
     pub async fn hold(&self) -> Result<(), HostError> {
+        self.keyed(model::HOLD_EXTRA_KEY).await
+    }
+
+    /// Drive the end effector to its own home pose, then hold there (§4
+    /// rule 11), as d1-firmwared's `POST /v1/end_effectors/{side}/home`
+    /// does for a provider that lists `home` in `set_extra`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Host::hold`], with `home` for `hold`.
+    pub async fn home(&self) -> Result<(), HostError> {
+        self.keyed(model::HOME_EXTRA_KEY).await
+    }
+
+    async fn keyed(&self, key: &'static str) -> Result<(), HostError> {
         let descriptor = self
             .shared
             .descriptor()
             .ok_or_else(|| self.shared.unavailable())?;
-        if !descriptor
-            .capabilities
-            .set_extra
-            .iter()
-            .any(|key| key == model::HOLD_EXTRA_KEY)
-        {
-            return Err(not_capable(descriptor, "hold"));
+        if !descriptor.capabilities.set_extra.iter().any(|k| k == key) {
+            return Err(not_capable(descriptor, key));
         }
         let target = self.shared.device()?;
         self.take_slot().await;
-        self.command(Command::Set(SetCommand::hold()), target, REQUEST_TIMEOUT)
-            .await
+        self.command(
+            Command::Set(SetCommand::keyed(key)),
+            target,
+            REQUEST_TIMEOUT,
+        )
+        .await
     }
 
     fn validate_set(&self, request: &SetRequest) -> Result<SetCommand, HostError> {
