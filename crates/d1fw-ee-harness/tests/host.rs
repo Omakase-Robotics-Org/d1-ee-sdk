@@ -252,7 +252,7 @@ async fn a_hold_reaches_only_a_provider_that_declares_it() {
     descriptor.capabilities.stroke_completion = false;
     descriptor.capabilities.grip_presets.clear();
     descriptor.capabilities.grip_torque = false;
-    descriptor.capabilities.set_extra = vec!["hold".to_owned()];
+    descriptor.capabilities.set_extra = vec!["hold".to_owned(), "home".to_owned()];
     let provider = TestProvider::with_descriptor(descriptor);
     let record = provider.record();
     let _handle = d1fw_ee_provider::serve(
@@ -273,4 +273,23 @@ async fn a_hold_reaches_only_a_provider_that_declares_it() {
         409,
         "an openness is still refused without the capability"
     );
+    host.joints(vec![0.2], wall_clock_us())
+        .await
+        .expect("a target");
+    assert_eq!(status(&host.home().await), 200);
+    assert_eq!(record.homes.load(Ordering::Relaxed), 1);
+    assert!(
+        (record.position() - 1.0).abs() < 1e-9,
+        "homed to the open end"
+    );
+}
+
+/// A home on a provider that does not list it is refused before anything
+/// is sent.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_home_reaches_only_a_provider_that_declares_it() {
+    let root = ShmRoot::scratch();
+    let (host, record, _handle) = served(&root).await;
+    assert_eq!(status(&host.home().await), 409);
+    assert_eq!(record.homes.load(Ordering::Relaxed), 0);
 }

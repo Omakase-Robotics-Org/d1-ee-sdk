@@ -41,8 +41,8 @@ pub use d1fw_ee_shm_contract::{
     self as contract, CONTRACT, SCHEMA_VERSION,
     model::{
         Capabilities, ContractError, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing,
-        GripPreset, HOLD_EXTRA_KEY, Joint, JointUnit, ProviderError, Register, Registers,
-        SetCommand, State, Tick, TickPhase, Tool,
+        GripPreset, HOLD_EXTRA_KEY, HOME_EXTRA_KEY, Joint, JointUnit, KEYED_SETS, ProviderError,
+        Register, Registers, SetCommand, State, Tick, TickPhase, Tool,
     },
     names::{self, ServiceNames},
     ports,
@@ -91,7 +91,11 @@ pub trait Provider: Send + Sync + 'static {
     /// actuators holding where they are now, with the provider's own command
     /// watchdog disarmed, until the next `joints`, `set` or `stop`; a hold
     /// moves nothing towards a target and gives no authority back to
-    /// actuators that are off (§4 rule 10).
+    /// actuators that are off (§4 rule 10). One that lists
+    /// [`HOME_EXTRA_KEY`] receives homes ([`SetCommand::is_home`]): drive to
+    /// its own home pose through its normal control (`tracking` until it has
+    /// arrived), replacing any streamed target, then hold there as after a
+    /// hold (§4 rule 11).
     async fn set(&self, command: SetCommand) -> Result<(), ProviderError>;
 
     /// Drive every joint to its target. Never waits for motion.
@@ -158,25 +162,22 @@ pub trait Provider: Send + Sync + 'static {
 ///
 /// # Errors
 ///
-/// [`ErrorKind::Refused`] without the `openness` capability (a hold
-/// without [`HOLD_EXTRA_KEY`] in `set_extra`);
+/// [`ErrorKind::Refused`] without the `openness` capability (a hold or a
+/// home without its key, [`KEYED_SETS`], in `set_extra`);
 /// [`ErrorKind::Unprocessable`] for a grip, torque or `extra` key the
-/// descriptor does not declare, or a hold that carries anything else.
+/// descriptor does not declare, or a hold or home that carries anything
+/// else.
 pub fn check_set(descriptor: &Descriptor, command: &SetCommand) -> Result<(), ProviderError> {
     let capabilities = &descriptor.capabilities;
-    if command.is_hold() {
-        if !capabilities
-            .set_extra
-            .iter()
-            .any(|key| key == HOLD_EXTRA_KEY)
-        {
+    if let Some(verb) = command.keyed_verb() {
+        if !capabilities.set_extra.iter().any(|key| key == verb) {
             return Err(ProviderError::new(
                 ErrorKind::Refused,
-                "this end effector does not take a hold",
+                format!("this end effector does not take a {verb}"),
             ));
         }
         return command
-            .check_hold()
+            .check_keyed()
             .map_err(|why| ProviderError::new(ErrorKind::Unprocessable, why));
     }
     if !capabilities.openness {

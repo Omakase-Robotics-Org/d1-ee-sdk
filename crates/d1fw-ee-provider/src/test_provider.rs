@@ -46,6 +46,9 @@ pub struct TestRecord {
     pub stops: AtomicUsize,
     /// How many holds arrived (a hold is not recorded in `sets`).
     pub holds: AtomicUsize,
+    /// How many homes arrived (not recorded in `sets`); a home moves the
+    /// jaw to its open end.
+    pub homes: AtomicUsize,
     /// How many fault clears arrived.
     pub clear_faults: AtomicUsize,
     /// Every register read's id list.
@@ -169,6 +172,11 @@ impl Provider for TestProvider {
         if command.is_hold() {
             // Held where it is: nothing moves.
             self.record.holds.fetch_add(1, Ordering::Relaxed);
+            return Ok(());
+        }
+        if command.is_home() {
+            self.record.homes.fetch_add(1, Ordering::Relaxed);
+            self.move_to(OPEN_RAD);
             return Ok(());
         }
         let wait = command.wait;
