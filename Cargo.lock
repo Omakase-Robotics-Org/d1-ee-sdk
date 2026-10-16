@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "d1-arm-loopbench"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "d1fw-arm-shm-contract",
@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "d1fw-arm-shm-contract"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "d1fw-ee-shm-contract",
  "iceoryx2",
@@ -309,14 +309,14 @@ dependencies = [
 
 [[package]]
 name = "d1fw-canfd"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "d1fw-ee-hand"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "clap",
@@ -333,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "d1fw-ee-harness"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "d1fw-canfd",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "d1fw-ee-provider"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "d1fw-ee-provider",
@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "d1fw-ee-shm-contract"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "iceoryx2",
  "rustix",

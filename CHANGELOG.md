@@ -4,7 +4,7 @@ All notable changes to `d1-ee-sdk` are recorded here, newest first. The
 format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/);
 versions follow `0.x` SemVer (README, "Versions").
 
-## [Unreleased]
+## [0.2.0] - 2026-10-16
 
 ### Added
 

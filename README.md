@@ -148,8 +148,8 @@ A provider takes the crates as a git dependency pinned to a release tag:
 
 ```toml
 [workspace.dependencies]
-d1fw-ee-provider = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.1.0" }
-d1fw-ee-harness = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.1.0" }
+d1fw-ee-provider = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.2.0" }
+d1fw-ee-harness = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.2.0" }
 iceoryx2 = "=0.9.3"
 ```
 
