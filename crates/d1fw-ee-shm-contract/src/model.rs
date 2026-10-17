@@ -420,10 +420,13 @@ pub struct Descriptor {
     /// The tool the daemon registers on the side's arm when it accepts this
     /// declaration; `None` registers nothing.
     pub tool: Option<Tool>,
-    /// The id of the collision envelope the arm guard should check this end
-    /// effector with, at most [`NAME_LEN`] bytes; `None` when the provider
-    /// declares none. An id the daemon's guard does not know leaves the
-    /// guard on its default envelope, and the daemon says so.
+    /// The canonical model id the arm guard resolves, through the robot's
+    /// hand catalog, to the collision envelope that checks this end
+    /// effector; at most [`NAME_LEN`] bytes, `None` when the provider
+    /// declares none. An id the catalog does not resolve, or resolves to an
+    /// unverified envelope, is an unknown hand: the guard checks it with its
+    /// default envelope widened by a margin, or the robot refuses motion
+    /// with it if it opted in; the daemon says so either way.
     pub guard_model: Option<String>,
 }
 

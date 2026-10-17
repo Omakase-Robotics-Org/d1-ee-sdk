@@ -8,6 +8,15 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ### Added
 
+- The unknown-hand policy in the spec (§3.4, §5, §7): a provider declares
+  the canonical model id of its hand; the daemon resolves it through the hand
+  catalog (aliases, models, envelopes with a content-derived id, a digest and
+  a `verified` flag) of the robot's installed description bundle and records
+  the envelope id and digest it applied. An id the catalog does not resolve,
+  an envelope that is not verified, no declaration, or a lost provider is an
+  unknown hand: by default a warning and the default envelope with a widened
+  margin, refused only on a robot that opted in. A vanished provider leaves
+  its side unknown.
 - `d1-arm-loopbench` reports the daemon's own record of the command path
   after a stream, when the daemon offers it (`GET /v1/arm/command_path`):
   the time of each command per stage inside the daemon over the last second
