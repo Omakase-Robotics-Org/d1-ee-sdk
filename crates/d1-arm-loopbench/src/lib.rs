@@ -16,7 +16,13 @@
 //!   command is the written target;
 //! - the controller's frame-miss counters (`frame_miss_count` and the rise of
 //!   `max_frame_miss_count` over the run) and the feedback rate and gaps;
-//! - every refusal, by reason.
+//! - every refusal, by reason;
+//! - the daemon's own record of the path, when the daemon offers it
+//!   (`GET /v1/arm/command_path`, d1-firmwared 0.12 and later): where the
+//!   time of each command written in the last second went inside the daemon
+//!   (per stage, p50 / p99 / max), and the controller's uptake of the writes
+//!   (the echo lag, the consumption and feedback rates, the targets in
+//!   flight, saturation and pacing).
 //!
 //! With `--feedback-only` it only reads `arm_feedback.shm/1`, spinning on
 //! it, and reports the feedback rate, its gaps and its publish latency.
@@ -239,6 +245,10 @@ pub struct Report {
     /// reader holding it (measured with `--feedback-only`, where the reader
     /// spins).
     pub feedback_latency: Spread,
+    /// The daemon's record of the path (`GET /v1/arm/command_path`), read
+    /// after the stream; `None` when the daemon does not offer it or the
+    /// REST port was not asked.
+    pub daemon_command_path: Option<Value>,
 }
 
 impl Report {
@@ -332,6 +342,11 @@ impl Report {
                 ),
             );
         }
+        if let Some(record) = &self.daemon_command_path {
+            for text in daemon_record_lines(record) {
+                line(&mut out, text);
+            }
+        }
         out
     }
 
@@ -358,6 +373,7 @@ impl Report {
             "sys_cyc_miss_max": self.sys_cyc_miss_max,
             "stream_stops": self.stream_stops,
             "feedback_latency": self.feedback_latency.json(),
+            "daemon_command_path": self.daemon_command_path.clone().unwrap_or(Value::Null),
         })
     }
 
@@ -425,6 +441,66 @@ impl Report {
             failures.push("no command was written".to_owned());
         }
         failures
+    }
+}
+
+/// The stage names of the daemon's record, in path order, and `total`.
+const DAEMON_STAGES: [&str; 8] = [
+    "contract",
+    "rate",
+    "lease",
+    "facade_entry",
+    "guard",
+    "backend",
+    "written",
+    "total",
+];
+
+/// The daemon's record as report lines: the stage breakdown of the last
+/// second and the controller's uptake.
+fn daemon_record_lines(record: &Value) -> Vec<String> {
+    let stages = &record["stages"];
+    let stream = &record["stream"];
+    let spread = |stage: &str| {
+        let spread = &stages[stage];
+        format!(
+            "{stage} {}/{}/{}",
+            spread["p50_us"], spread["p99_us"], spread["max_us"]
+        )
+    };
+    vec![
+        format!(
+            "daemon stages over the last {:.2} s ({} commands, p50/p99/max us): {}",
+            stages["window_s"].as_f64().unwrap_or(0.0),
+            stages["count"],
+            DAEMON_STAGES
+                .iter()
+                .map(|stage| spread(stage))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        format!(
+            "daemon stream: echo lag {} us, consumption {:.1}/s, advance {:.1}/s, feedback {:.1}/s, in flight {}, saturated {}, paced {}, onsets {}, superseded {} (paced {})",
+            stream["echo_lag_us"],
+            stream["consumption_hz"].as_f64().unwrap_or(0.0),
+            stream["advance_hz"].as_f64().unwrap_or(0.0),
+            stream["feedback_hz"].as_f64().unwrap_or(0.0),
+            stream["in_flight"],
+            stream["saturated"],
+            stream["paced"],
+            stream["saturation_onsets"],
+            record["superseded"],
+            stream["paced_superseded"],
+        ),
+    ]
+}
+
+/// The daemon's record of the path, or `None` when the daemon does not
+/// offer the route (a daemon before it) or does not answer.
+fn daemon_command_path(rest: &str) -> Option<Value> {
+    match http::request(rest, "GET", "/v1/arm/command_path", &Value::Null) {
+        Ok((200, body)) => body.get("data").cloned().filter(|data| data.is_object()),
+        _ => None,
     }
 }
 
@@ -761,6 +837,7 @@ pub fn run(args: &Args) -> Result<Report, String> {
         std::thread::sleep(Duration::from_millis(1));
     }
     drop(lease);
+    report.daemon_command_path = daemon_command_path(&args.rest);
     report.daemon = Spread::of(daemon);
     report.client_to_written = Spread::of(client_to_written);
     report.end_to_end = Spread::of(end_to_end);
@@ -830,6 +907,40 @@ mod tests {
             [true, false, false, false, false, false, true]
         );
         assert!(parse_joints("8").is_err());
+    }
+
+    #[test]
+    fn the_daemons_record_is_reported_when_present() {
+        let record = json!({
+            "superseded": 4,
+            "stream": {"echo_lag_us": 1394, "consumption_hz": 921.6, "advance_hz": 718.0,
+                       "feedback_hz": 925.9, "in_flight": 0, "saturated": false, "paced": true,
+                       "saturation_onsets": 2, "paced_superseded": 3},
+            "stages": {"window_s": 1.0, "count": 812,
+                       "contract": {"p50_us": 2, "p99_us": 3, "max_us": 3},
+                       "rate": {"p50_us": 0, "p99_us": 0, "max_us": 0},
+                       "lease": {"p50_us": 2, "p99_us": 2, "max_us": 2},
+                       "facade_entry": {"p50_us": 30, "p99_us": 32, "max_us": 34},
+                       "guard": {"p50_us": 289, "p99_us": 348, "max_us": 916},
+                       "backend": {"p50_us": 24, "p99_us": 27, "max_us": 48},
+                       "written": {"p50_us": 5, "p99_us": 6, "max_us": 13},
+                       "total": {"p50_us": 352, "p99_us": 399, "max_us": 1013}}
+        });
+        let report = Report {
+            daemon_command_path: Some(record.clone()),
+            ..Report::default()
+        };
+        let text = report.text();
+        assert!(text.contains("guard 289/348/916"), "{text}");
+        assert!(text.contains("total 352/399/1013"), "{text}");
+        assert!(
+            text.contains("echo lag 1394 us, consumption 921.6/s"),
+            "{text}"
+        );
+        assert!(text.contains("onsets 2, superseded 4 (paced 3)"), "{text}");
+        assert_eq!(report.json()["daemon_command_path"], record);
+        assert!(Report::default().json()["daemon_command_path"].is_null());
+        assert!(!Report::default().text().contains("daemon stages"));
     }
 
     #[test]

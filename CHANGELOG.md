@@ -4,6 +4,17 @@ All notable changes to `d1-ee-sdk` are recorded here, newest first. The
 format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/);
 versions follow `0.x` SemVer (README, "Versions").
 
+## [Unreleased]
+
+### Added
+
+- `d1-arm-loopbench` reports the daemon's own record of the command path
+  after a stream, when the daemon offers it (`GET /v1/arm/command_path`):
+  the time of each command per stage inside the daemon over the last second
+  (p50 / p99 / max) and the controller's uptake of the writes (echo lag,
+  consumption and feedback rates, targets in flight, saturation, pacing);
+  `daemon_command_path` in the JSON report (`null` without it).
+
 ## [0.2.0] - 2026-10-16
 
 ### Added
