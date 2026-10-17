@@ -193,7 +193,13 @@ The full text is the spec; the decisions behind it:
   keeps the last set-point it sent, watchdog disarmed, until the next
   command (spec §4 rules 3 and 10). It needs no `openness` capability and
   changes no layout, code or bit of version 1. A side whose provider does
-  not list it is answered `{"held": false}` without a request.
+  not list it is answered `{"held": false}` without a request. A hold has a
+  lifetime: the provider declares `hold_timeout_ms` (at most 5 minutes) and
+  treats an expired hold as a stop, and a back-drivable hand keeps its pose
+  after a stop for a declared `stop_hold_ms` (at most 3 s) before relaxing.
+  Both are declared, and the notices before each end and the events after
+  it are recorded, in the `hold` object of the state's `detail` (spec §4
+  rule 10); the SDK's `d1fw_ee_shm_contract::hold` module holds the types.
 - **A home is a `set` with `extra` `{"home": true}`.** A provider that
   lists `home` in `set_extra` drives to its own home pose through its
   normal control and then holds there (spec §4 rule 11); the daemon's

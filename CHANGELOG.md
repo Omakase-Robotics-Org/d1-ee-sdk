@@ -24,7 +24,6 @@ versions follow `0.x` SemVer (README, "Versions").
   `is_hold`; `check_set` and the SDK runtime accept and
   check it; `Host::hold`; `conformance::lifecycle` drives a hold when the
   declaration lists it; `TestRecord::holds`.
-
 - A home, the same way: a `set` whose `extra` is `{"home": true}`, taken by
   a provider that lists `home` in `set_extra`, drives to the provider's own
   home pose through its normal control and then holds (spec §4 rule 11).
@@ -32,11 +31,24 @@ versions follow `0.x` SemVer (README, "Versions").
   `keyed_verb`, `is_home`, `check_keyed` (which replaces `check_hold`);
   `Host::home`; the lifecycle drives a home when listed;
   `TestRecord::homes`.
+- A hold's lifetime and a stop's pose (spec §4 rules 4 and 10), with no
+  layout change: a provider that lists `hold` declares `hold_timeout_ms`
+  (cap 300000 ms) and treats an expired hold as a stop; a back-drivable
+  hand declares `stop_hold_ms` (cap 3000 ms) to keep its pose at reduced
+  effort after a stop before it relaxes; `hold_expiring` and `stop_relaxing`
+  notices precede each end and the events are recorded in the `hold` object
+  of the state's `detail` and in the provider's log. A settle definition
+  (2 % of range, 5 % of range per second, 100 ms) says when `tracking`
+  clears. `d1fw_ee_shm_contract::hold` (`HoldLifetime`, `HoldReport`,
+  `HoldEvent`, `Joint::settled`, the caps and leads); the test provider
+  implements it (`TestRecord::lifetime`, `hold_events`, `hold_phase`) and
+  `conformance::lifecycle` checks the declared report after a hold.
 
 ### Changed
 
 - `State.tracking` is defined (spec §3.4): a streamed target taken and not
-  yet reached, cleared once the end effector has arrived and only holds.
+  yet reached, cleared once the end effector has settled (a settle is defined in §4
+  rule 10) and only holds.
 
 ## [0.2.0] - 2026-10-16
 

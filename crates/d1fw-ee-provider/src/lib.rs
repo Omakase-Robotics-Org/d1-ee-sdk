@@ -39,6 +39,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 pub use d1fw_ee_shm_contract::{
     self as contract, CONTRACT, SCHEMA_VERSION,
+    hold::{
+        self, HOLD_DETAIL_KEY, HoldEvent, HoldEventKind, HoldLifetime, HoldPhase, HoldReport,
+        MAX_HOLD_TIMEOUT_MS, MAX_STOP_HOLD_MS,
+    },
     model::{
         Capabilities, ContractError, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing,
         GripPreset, HOLD_EXTRA_KEY, HOME_EXTRA_KEY, Joint, JointUnit, KEYED_SETS, ProviderError,

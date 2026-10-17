@@ -2,13 +2,18 @@
 //! §4 and §7), checked against a [`Host`]: it announces a valid declaration
 //! and becomes available; every verb its declaration lists is answered
 //! (`set`, `clear_fault` and `registers` on an idle device, then `joints`,
-//! then a hold and a home when `set_extra` lists them, then `stop`); killed with SIGKILL, the side turns unavailable for
+//! then a hold, whose declared lifetime is checked against the caps (§4
+//! rule 10), and a home when `set_extra` lists them, then `stop`); killed with SIGKILL, the side turns unavailable for
 //! want of a heartbeat and a stop raised meanwhile is refused; restarted,
 //! the same declaration is taken back; SIGTERM ends it with status 0.
 
 use std::{process::Command, time::Duration};
 
-use d1fw_ee_shm_contract::{clock, model};
+use d1fw_ee_shm_contract::{
+    clock,
+    hold::{HoldPhase, HoldReport},
+    model,
+};
 
 use crate::{
     host::{Host, SetRequest},
@@ -25,6 +30,38 @@ pub struct Lifecycle {
     pub descriptor: model::Descriptor,
     /// The verbs the declaration lists that were driven and answered.
     pub verbs: Vec<&'static str>,
+}
+
+/// A provider that lists `hold` declares its lifetime (§4 rule 10): after a
+/// hold its state's `detail` carries a `HoldReport` naming a
+/// `hold_timeout_ms` within the cap, and a `stop_hold_ms` within its cap
+/// when it names one. The provider's own `Held` phase is waited for, not the
+/// first state published.
+async fn check_hold_lifetime(host: &Host) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        if let Ok(state) = host.read().await
+            && let Some(detail) = state.detail
+        {
+            let report = HoldReport::from_detail_data(&detail.data)
+                .expect("the hold report in the state's detail is valid");
+            if let Some(report) = report
+                && report.phase == HoldPhase::Held
+            {
+                assert!(
+                    report.lifetime.hold_timeout_ms.is_some(),
+                    "a provider that lists `hold` declares hold_timeout_ms: {report:?}"
+                );
+                return;
+            }
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "after a hold the state's detail never carried a hold report in phase `held` \
+             (a provider that lists `hold` declares its lifetime under `detail.data.hold`)"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
 }
 
 /// Run the provider `command` (started again after a SIGKILL with the same
@@ -80,6 +117,7 @@ pub async fn lifecycle(host: &Host, command: impl Fn() -> Command) -> Lifecycle 
     {
         host.hold().await.expect("a hold is answered");
         verbs.push("hold");
+        check_hold_lifetime(host).await;
     }
     if capabilities
         .set_extra

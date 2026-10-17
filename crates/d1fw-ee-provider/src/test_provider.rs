@@ -1,8 +1,11 @@
 //! A simulated one-joint gripper served over the contract, for tests.
 
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicU64, AtomicUsize, Ordering},
+use std::{
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use async_trait::async_trait;
@@ -10,8 +13,10 @@ use serde_json::json;
 use tokio::sync::watch;
 
 use crate::{
-    Capabilities, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing, GripPreset, Joint,
+    Capabilities, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing, GripPreset,
+    HOLD_DETAIL_KEY, HoldEvent, HoldEventKind, HoldLifetime, HoldPhase, HoldReport, Joint,
     JointUnit, Provider, ProviderError, Register, Registers, SetCommand, State, Tick, Tool,
+    hold::{HOLD_NOTICE_LEAD_MS, STOP_NOTICE_LEAD_MS},
 };
 
 /// The detail schema id [`TestProvider`] declares; no consumer decodes it.
@@ -63,6 +68,16 @@ pub struct TestRecord {
     pub stroke_ms: AtomicU64,
     /// The jaw position, radians.
     position: Mutex<f64>,
+    /// The lifetime the provider declares for its holds (§4 rules 4 and
+    /// 10), settable by a test; the default is a 60 s hold and a 2 s stop
+    /// pose.
+    pub lifetime: Mutex<HoldLifetime>,
+    /// The report the provider carries in its detail: phase and events.
+    report: Mutex<HoldReport>,
+    /// When the current hold or stop pose started.
+    since: Mutex<Option<Instant>>,
+    /// Whether the notice of the current phase was given.
+    noticed: Mutex<bool>,
 }
 
 impl TestRecord {
@@ -70,6 +85,94 @@ impl TestRecord {
     #[must_use]
     pub fn position(&self) -> f64 {
         *self.position.lock().expect("position lock")
+    }
+
+    /// The events recorded so far, oldest first (at most the last eight),
+    /// after advancing the lifetime to now.
+    #[must_use]
+    pub fn hold_events(&self) -> Vec<HoldEvent> {
+        self.advance(Instant::now());
+        self.report.lock().expect("report lock").events.clone()
+    }
+
+    /// The phase after advancing the lifetime to now.
+    #[must_use]
+    pub fn hold_phase(&self) -> HoldPhase {
+        self.advance(Instant::now());
+        self.report.lock().expect("report lock").phase
+    }
+
+    fn begin(&self, phase: HoldPhase) {
+        self.report.lock().expect("report lock").phase = phase;
+        *self.since.lock().expect("since lock") = (phase != HoldPhase::None).then(Instant::now);
+        *self.noticed.lock().expect("noticed lock") = false;
+    }
+
+    fn event(&self, kind: HoldEventKind, remaining_ms: u32) {
+        self.report.lock().expect("report lock").record(HoldEvent {
+            kind,
+            mono_ns: d1fw_ee_shm_contract::clock::monotonic_ns(),
+            remaining_ms,
+        });
+    }
+
+    /// A stop: the pose is kept at reduced effort for `stop_hold_ms` when
+    /// declared, otherwise relaxed at once.
+    fn begin_stop(&self) {
+        let declared = self.lifetime.lock().expect("lifetime lock").stop_hold_ms;
+        if declared.is_some() {
+            self.begin(HoldPhase::StopHolding);
+        } else {
+            self.begin(HoldPhase::None);
+            self.event(HoldEventKind::StopRelaxed, 0);
+        }
+    }
+
+    /// Move the lifetime on to `now`: a notice before its expiry, the
+    /// expiry at the end of the period.
+    fn advance(&self, now: Instant) {
+        let phase = self.report.lock().expect("report lock").phase;
+        let Some(since) = *self.since.lock().expect("since lock") else {
+            return;
+        };
+        let lifetime = *self.lifetime.lock().expect("lifetime lock");
+        let (total, lead, notice, end) = match phase {
+            HoldPhase::None => return,
+            HoldPhase::Held => (
+                lifetime.hold_timeout_ms.unwrap_or(u32::MAX),
+                HOLD_NOTICE_LEAD_MS,
+                HoldEventKind::HoldExpiring,
+                HoldEventKind::HoldExpired,
+            ),
+            HoldPhase::StopHolding => (
+                lifetime.stop_hold_ms.unwrap_or(0),
+                STOP_NOTICE_LEAD_MS,
+                HoldEventKind::StopRelaxing,
+                HoldEventKind::StopRelaxed,
+            ),
+        };
+        let elapsed = now.saturating_duration_since(since);
+        let total_d = Duration::from_millis(u64::from(total));
+        let notice_at = total_d.saturating_sub(Duration::from_millis(u64::from(lead)));
+        let give_notice = {
+            let mut noticed = self.noticed.lock().expect("noticed lock");
+            let due = !*noticed && elapsed >= notice_at;
+            *noticed |= due;
+            due
+        };
+        if give_notice {
+            let remaining = total_d.saturating_sub(elapsed).as_millis();
+            self.event(notice, u32::try_from(remaining).unwrap_or(u32::MAX));
+        }
+        if elapsed >= total_d {
+            self.event(end, 0);
+            if phase == HoldPhase::Held {
+                // An expired hold is a stop (§4 rule 10).
+                self.begin_stop();
+            } else {
+                self.begin(HoldPhase::None);
+            }
+        }
     }
 }
 
@@ -134,6 +237,10 @@ impl TestProvider {
     pub fn with_descriptor(descriptor: Descriptor) -> Self {
         let record = Arc::new(TestRecord::default());
         *record.position.lock().expect("position lock") = OPEN_RAD;
+        *record.lifetime.lock().expect("lifetime lock") = HoldLifetime {
+            hold_timeout_ms: Some(60_000),
+            stop_hold_ms: Some(2_000),
+        };
         Self {
             descriptor,
             record,
@@ -170,15 +277,19 @@ impl Provider for TestProvider {
             return Err(error);
         }
         if command.is_hold() {
-            // Held where it is: nothing moves.
+            // Held where it is: nothing moves. A new hold restarts the
+            // lifetime.
             self.record.holds.fetch_add(1, Ordering::Relaxed);
+            self.record.begin(HoldPhase::Held);
             return Ok(());
         }
         if command.is_home() {
             self.record.homes.fetch_add(1, Ordering::Relaxed);
+            self.record.begin(HoldPhase::Held);
             self.move_to(OPEN_RAD);
             return Ok(());
         }
+        self.record.begin(HoldPhase::None);
         let wait = command.wait;
         let openness = command.openness;
         self.record.sets.lock().expect("lock").push(command);
@@ -192,6 +303,7 @@ impl Provider for TestProvider {
 
     async fn joints(&self, targets: Vec<f64>, timestamp_us: u64) -> Result<(), ProviderError> {
         let position = targets.first().copied().unwrap_or(OPEN_RAD);
+        self.record.begin(HoldPhase::None);
         self.record
             .joints
             .lock()
@@ -203,17 +315,20 @@ impl Provider for TestProvider {
 
     async fn read(&self) -> Result<State, ProviderError> {
         let position = self.record.position();
+        self.record.advance(Instant::now());
+        let mut report = self.record.report.lock().expect("report lock").clone();
+        report.lifetime = *self.record.lifetime.lock().expect("lifetime lock");
         Ok(State {
             openness: Some((position / OPEN_RAD).clamp(0.0, 1.0)),
             joints: vec![position],
             // The jaw moves at once, so it is never seen moving.
             velocity: vec![Some(0.0)],
             live: true,
-            holding: Some(false),
+            holding: Some(report.phase == HoldPhase::Held),
             fault: self.record.fault.lock().expect("lock").clone(),
             detail: self.descriptor.detail_schema.clone().map(|schema| Detail {
                 schema,
-                data: json!({"position_rad": position}),
+                data: json!({"position_rad": position, HOLD_DETAIL_KEY: report.to_value()}),
             }),
             ..State::default()
         })
@@ -221,6 +336,7 @@ impl Provider for TestProvider {
 
     async fn stop(&self) -> Result<(), ProviderError> {
         self.record.stops.fetch_add(1, Ordering::Relaxed);
+        self.record.begin_stop();
         Ok(())
     }
 
@@ -267,5 +383,129 @@ impl Provider for TestProvider {
 
     fn daemon_presence(&self, present: bool) {
         self.record.presence.lock().expect("lock").push(present);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{HoldEventKind as Kind, SetCommand};
+
+    fn make(hold_ms: Option<u32>, stop_ms: Option<u32>) -> (TestProvider, Arc<TestRecord>) {
+        let provider = TestProvider::default();
+        let record = provider.record();
+        *record.lifetime.lock().expect("lock") = HoldLifetime {
+            hold_timeout_ms: hold_ms,
+            stop_hold_ms: stop_ms,
+        };
+        (provider, record)
+    }
+
+    /// The events so far, without advancing the clock.
+    fn kinds(record: &TestRecord) -> Vec<Kind> {
+        let report = record.report.lock().expect("lock");
+        report.events.iter().map(|e| e.kind).collect()
+    }
+
+    fn phase(record: &TestRecord) -> HoldPhase {
+        record.report.lock().expect("lock").phase
+    }
+
+    /// Advance the lifetime to `ms` after the current period began, so the
+    /// test does not depend on how long the machine took to run it.
+    fn at(record: &TestRecord, ms: u64) {
+        let since = record.since.lock().expect("lock").expect("a period began");
+        record.advance(since + Duration::from_millis(ms));
+    }
+
+    /// An expired hold is a stop: the notice comes first, then the expiry,
+    /// then the stop's own pose when declared.
+    #[tokio::test]
+    async fn an_expired_hold_is_treated_as_a_stop() {
+        let (provider, record) = make(Some(5_000), Some(300));
+        provider.set(SetCommand::hold()).await.expect("hold");
+        assert_eq!(phase(&record), HoldPhase::Held);
+        at(&record, 3_999);
+        assert!(kinds(&record).is_empty(), "no notice before 1 s ahead");
+        at(&record, 4_000);
+        assert_eq!(kinds(&record), [Kind::HoldExpiring], "noticed 1 s ahead");
+        assert_eq!(record.report.lock().unwrap().events[0].remaining_ms, 1_000);
+        at(&record, 4_999);
+        assert_eq!(kinds(&record), [Kind::HoldExpiring], "still held");
+        assert_eq!(phase(&record), HoldPhase::Held);
+        at(&record, 5_000);
+        assert_eq!(
+            kinds(&record),
+            [Kind::HoldExpiring, Kind::HoldExpired],
+            "expired: a stop, whose pose is kept"
+        );
+        assert_eq!(phase(&record), HoldPhase::StopHolding);
+        // The stop pose lasts 300 ms, which is inside the 500 ms lead, so
+        // it is noticed as soon as the clock moves.
+        at(&record, 0);
+        assert_eq!(kinds(&record).last(), Some(&Kind::StopRelaxing));
+        at(&record, 300);
+        assert_eq!(phase(&record), HoldPhase::None);
+        assert_eq!(
+            kinds(&record),
+            [
+                Kind::HoldExpiring,
+                Kind::HoldExpired,
+                Kind::StopRelaxing,
+                Kind::StopRelaxed
+            ]
+        );
+    }
+
+    /// A new hold restarts the lifetime, so a hold can be renewed.
+    #[tokio::test]
+    async fn a_new_hold_restarts_the_lifetime() {
+        let (provider, record) = make(Some(5_000), None);
+        provider.set(SetCommand::hold()).await.expect("hold");
+        at(&record, 4_000);
+        assert_eq!(kinds(&record), [Kind::HoldExpiring]);
+        provider.set(SetCommand::hold()).await.expect("renewed");
+        assert_eq!(phase(&record), HoldPhase::Held);
+        at(&record, 3_999);
+        assert!(
+            !kinds(&record).contains(&Kind::HoldExpired),
+            "the first hold's 5 s ended, the renewed one's has not"
+        );
+        assert_eq!(phase(&record), HoldPhase::Held);
+    }
+
+    /// A stop keeps the pose for `stop_hold_ms` and then relaxes, noticing
+    /// first; without a declared duration it relaxes at once.
+    #[tokio::test]
+    async fn a_stop_keeps_the_pose_then_relaxes() {
+        let (provider, record) = make(Some(60_000), Some(700));
+        provider.stop().await.expect("stop");
+        assert_eq!(phase(&record), HoldPhase::StopHolding);
+        at(&record, 199);
+        assert!(kinds(&record).is_empty(), "0.5 s ahead of 0.7 s is 0.2 s");
+        at(&record, 200);
+        assert_eq!(kinds(&record), [Kind::StopRelaxing]);
+        at(&record, 700);
+        assert_eq!(kinds(&record), [Kind::StopRelaxing, Kind::StopRelaxed]);
+        assert_eq!(phase(&record), HoldPhase::None);
+
+        let (provider, record) = make(Some(60_000), None);
+        provider.stop().await.expect("stop");
+        assert_eq!(phase(&record), HoldPhase::None);
+        assert_eq!(kinds(&record), [Kind::StopRelaxed]);
+    }
+
+    /// The state carries the report, within the caps.
+    #[tokio::test]
+    async fn the_state_carries_a_valid_report() {
+        let (provider, _record) = make(Some(60_000), Some(2_000));
+        provider.set(SetCommand::hold()).await.expect("hold");
+        let state = provider.read().await.expect("read");
+        assert_eq!(state.holding, Some(true));
+        let report = HoldReport::from_detail_data(&state.detail.expect("detail").data)
+            .expect("valid")
+            .expect("present");
+        assert_eq!(report.phase, HoldPhase::Held);
+        assert_eq!(report.lifetime.hold_timeout_ms, Some(60_000));
     }
 }
