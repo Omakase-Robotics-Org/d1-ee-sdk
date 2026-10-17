@@ -20,7 +20,15 @@ prints:
   max;
 - the feedback rate and gaps, the highest `frame_miss_count` and
   `sys_cyc_miss_count` per arm, the rise of `max_frame_miss_count`, and the
-  stream stops.
+  stream stops;
+- the daemon's own record of the path, read over REST after the stream
+  (`GET /v1/arm/command_path`; omitted when the daemon does not offer it):
+  where the time of each command written in the last second went inside the
+  daemon — the contract's checks, the rate bucket, the lease token check,
+  the facade's entry, the motion guard, the backend's write and the return,
+  as p50 / p99 / max microseconds — and the controller's uptake of the
+  writes: the echo lag, its consumption and feedback rates, the targets in
+  flight, whether the stream is saturated and whether writes are paced.
 
 With `--feedback-only` it takes no lease and sends nothing: it spins on
 `arm_feedback.shm/1` for `--duration-s` and reports the feedback rate, the
