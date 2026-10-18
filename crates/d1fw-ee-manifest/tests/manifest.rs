@@ -5,8 +5,8 @@
 //! (`fixtures/rules/`), and the check against a descriptor.
 
 use d1fw_ee_manifest::{
-    COMMAND_PATTERN, DescriptorView, Link, Plane, ProviderManifest, RANGE_PATTERN, SCHEMA_JSON,
-    reader_warnings, schema, version_range,
+    COMMAND_PATTERN, DescriptorView, ID_MAX_LENGTH, ID_PATTERN, Link, Plane, ProviderManifest,
+    RANGE_PATTERN, SCHEMA_JSON, reader_warnings, schema, version_range,
 };
 use serde_json::{Value, json};
 
@@ -53,8 +53,8 @@ fn the_committed_schema_is_a_draft_2020_12_schema() {
 #[test]
 fn the_golden_manifest_of_d1_ee_ag_is_valid() {
     let manifest = ProviderManifest::parse(AG_MANIFEST).expect("valid");
-    assert_eq!(manifest.id, "omakase.ag");
-    assert_eq!(manifest.vendor(), "omakase");
+    assert_eq!(manifest.id, "d1-firmware.end-effector.dh.ag");
+    assert_eq!(manifest.vendor(), "dh");
     assert_eq!(manifest.version, "0.1.1");
     assert_eq!(manifest.package.name, "d1-ee-ag");
     assert_eq!(
@@ -121,7 +121,8 @@ fn the_golden_config_schema_takes_the_example_configuration_and_refuses_a_band()
 #[test]
 fn the_templates_manifest_is_valid() {
     let manifest = ProviderManifest::parse(TEMPLATE_MANIFEST).expect("valid");
-    assert_eq!(manifest.id, "acme.g1");
+    assert_eq!(manifest.id, "d1-firmware.end-effector.acme.g1");
+    assert_eq!(manifest.vendor(), "acme");
     assert_eq!(manifest.package.plane, Plane::Apt);
     assert_eq!(manifest.conformance.run_url, None);
 }
@@ -162,11 +163,14 @@ fn the_document_type_and_unknown_fields_are_refused() {
 }
 
 #[test]
-fn the_id_is_a_lowercase_vendor_and_name() {
-    assert_refused_at(|m| m["id"] = json!("Omakase.AG"), "/id");
-    assert_refused_at(|m| m["id"] = json!("omakase-ag"), "/id");
-    assert_refused_at(|m| m["id"] = json!("omakase.ag.v2"), "/id");
-    assert_refused_at(|m| m["id"] = json!("omakase.ag_100"), "/id");
+fn the_provider_id_cases_are_held() {
+    hold_cases(include_str!("fixtures/rules/provider-id.txt"), |m, v| {
+        m["id"] = json!(v);
+    });
+    assert_refused_at(
+        |m| m["id"] = json!("d1-firmware.end-effector.dh.ag\n"),
+        "/id",
+    );
 }
 
 #[test]
@@ -509,11 +513,15 @@ fn a_descriptor_is_read_from_a_sides_answer_or_bare() {
     assert!(DescriptorView::from_json(&json!({"side": "a"})).is_err());
 }
 
-const DAMIAO_MANIFEST: &str = include_str!("fixtures/published/omakase.damiao-0.1.2.json");
-const XHAND_MANIFEST: &str = include_str!("fixtures/published/omakase.xhand-0.1.0.json");
-const LEADSHINE_MANIFEST: &str = include_str!("fixtures/published/omakase.leadshine-0.1.1.json");
-const LINKERBOT_MANIFEST: &str = include_str!("fixtures/published/omakase.linkerbot-0.1.1.json");
-const D1_3_FIT: &str = include_str!("fixtures/published/d1-3.robot-fit-1.json");
+const DAMIAO_MANIFEST: &str =
+    include_str!("fixtures/published/d1-firmware.end-effector.damiao.motor-0.1.2.json");
+const XHAND_MANIFEST: &str =
+    include_str!("fixtures/published/d1-firmware.end-effector.robotera.xhand-lite-0.1.0.json");
+const LEADSHINE_MANIFEST: &str =
+    include_str!("fixtures/published/d1-firmware.end-effector.leadshine.dh116-0.1.1.json");
+const LINKERBOT_MANIFEST: &str =
+    include_str!("fixtures/published/d1-firmware.end-effector.linkerbot.o30-0.1.1.json");
+const D1_3_FIT: &str = include_str!("fixtures/published/d1-3.robot-fit-2.json");
 
 fn descriptor(text: &str) -> DescriptorView {
     DescriptorView::from_json(&serde_json::from_str(text).expect("JSON")).expect("a descriptor")
@@ -717,12 +725,17 @@ fn the_patterns_the_reader_shares_are_the_schemas() {
     assert_eq!(command, &json!(COMMAND_PATTERN));
     let range = &schema["properties"]["sdk"]["properties"]["d1_ee_sdk"]["pattern"];
     assert_eq!(range, &json!(RANGE_PATTERN));
+    assert_eq!(&schema["properties"]["id"]["pattern"], &json!(ID_PATTERN));
+    assert_eq!(
+        &schema["properties"]["id"]["maxLength"],
+        &json!(ID_MAX_LENGTH)
+    );
 }
 
 #[test]
 fn the_fit_of_d1_3_names_ranges_the_grammar_takes() {
     let fit: Value = serde_json::from_str(D1_3_FIT).expect("JSON");
-    assert_eq!(fit["revision"], json!(1));
+    assert_eq!(fit["revision"], json!(2));
     let damiao = ProviderManifest::parse(DAMIAO_MANIFEST).expect("valid");
     for side in ["a", "b"] {
         let provider = &fit["sides"][side]["provider"];

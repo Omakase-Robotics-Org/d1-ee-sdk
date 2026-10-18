@@ -6,6 +6,21 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ## [Unreleased]
 
+### Changed
+
+- A provider manifest's `id` is a dotted namespace of two to six lowercase
+  segments (`ID_PATTERN`, at most `ID_MAX_LENGTH` = 64 characters), by
+  convention `d1-firmware.end-effector.<vendor>.<model>`; it was exactly
+  `<vendor>.<name>`. The template's id is
+  `d1-firmware.end-effector.acme.g1`. The providers the hub distributes are
+  republished under `d1-firmware.end-effector.dh.ag`, `….damiao.motor`,
+  `….linkerbot.o30`, `….leadshine.dh116` and `….robotera.xhand-lite` (same
+  versions); the `omakase.*` entries stay on the hub, retired
+  (`docs/third-party-providers.md`). `ProviderManifest::vendor` is the
+  segment before the last. The id's accept and refuse cases are a shared
+  rules file (`tests/fixtures/rules/provider-id.txt`), held by
+  d1-provisioning's reader as well.
+
 ### Added
 
 - The provider manifest `omakase-ee-provider/1`: its JSON Schema
@@ -30,8 +45,8 @@ versions follow `0.x` SemVer (README, "Versions").
   exact (`version_range`, `RANGE_PATTERN`), no Cargo caret, tilde or
   wildcard. `d1fw-ee-manifest check` warns about valid JSON the reader
   refuses (`\u`, `\b`, `\f` escapes, empty or dotted keys, a key twice).
-  The published documents (omakase.ag 0.1.1, omakase.damiao 0.1.2,
-  omakase.xhand 0.1.0, the fit of d1-3 revision 1) are test fixtures.
+  The published documents (the five provider manifests and the fit of d1-3
+  revision 2) are test fixtures.
 - `template/`: a provider repository to copy — a crate implementing
   `Provider` over a fake transport, its conformance test against
   `d1fw-ee-harness`, Debian packaging, CI and release workflows, and its

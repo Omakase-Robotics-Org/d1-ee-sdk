@@ -30,7 +30,10 @@ fn a_valid_manifest_and_its_descriptor_pass() {
     let descriptor = fixture("d1-ee-ag.descriptor.json");
     let (code, out, err) = run(&["check", &manifest]);
     assert_eq!(code, 0, "{err}");
-    assert!(out.contains("valid omakase.ag 0.1.1"), "{out}");
+    assert!(
+        out.contains("valid d1-firmware.end-effector.dh.ag 0.1.1"),
+        "{out}"
+    );
     let (code, out, err) = run(&["check", &manifest, "--descriptor", &descriptor]);
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("posture open: [1.0]"), "{out}");
@@ -83,7 +86,10 @@ fn the_schema_command_prints_the_committed_schema() {
 
 #[test]
 fn a_provider_without_a_configuration_file_is_valid() {
-    let (code, out, err) = run(&["check", &fixture("published/omakase.leadshine-0.1.1.json")]);
+    let (code, out, err) = run(&[
+        "check",
+        &fixture("published/d1-firmware.end-effector.leadshine.dh116-0.1.1.json"),
+    ]);
     assert_eq!(code, 0, "{err}");
     assert!(
         out.contains("config none (the provider reads no file)"),
@@ -100,7 +106,10 @@ fn what_the_on_robot_reader_refuses_is_a_warning_with_exit_0() {
     std::fs::write(&path, text).expect("write");
     let (code, out, err) = run(&["check", &path.display().to_string()]);
     assert_eq!(code, 0, "{err}");
-    assert!(out.contains("valid omakase.ag 0.1.1"), "{out}");
+    assert!(
+        out.contains("valid d1-firmware.end-effector.dh.ag 0.1.1"),
+        "{out}"
+    );
     assert!(
         err.contains("warning: /config_schema/title: the string escape \\u"),
         "{err}"

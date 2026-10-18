@@ -1,0 +1,34 @@
+# id cases: one per line, "accept " or "refuse " and the value, to the end of the line.
+# The convention is d1-firmware.end-effector.<vendor>.<model>; any dotted namespace of two
+# to six lowercase segments, at most 64 characters, is an id. This file is identical in
+# d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and d1-provisioning
+# (tests/fixtures/ee-manifest-rules/): the SDK's validator and the on-robot reader are held
+# to the same verdicts.
+accept d1-firmware.end-effector.dh.ag
+accept d1-firmware.end-effector.damiao.motor
+accept d1-firmware.end-effector.linkerbot.o30
+accept d1-firmware.end-effector.leadshine.dh116
+accept d1-firmware.end-effector.robotera.xhand-lite
+accept d1-firmware.end-effector.acme.g1
+accept d1-firmware.end-effector.acme.g1.v2
+accept omakase.ag
+accept acme.g1
+accept a.b.c.d.e.f
+accept 0.1
+accept d1-firmware.end-effector.vvvvvvvvvvvvvvvvvvvv.mmmmmmmmmmmmmmmmmm
+refuse d1-firmware.end-effector.vvvvvvvvvvvvvvvvvvvv.mmmmmmmmmmmmmmmmmmm
+refuse a.b.c.d.e.f.g
+refuse omakase
+refuse omakase-ag
+refuse Omakase.AG
+refuse d1-firmware.end-effector.DH.ag
+refuse d1-firmware.end-effector.dh.ag_100
+refuse d1-firmware.end-effector.dh.ag/100
+refuse d1-firmware.end-effector.dh.ag+1
+refuse d1-firmware.end-effector..ag
+refuse .d1-firmware.end-effector.dh.ag
+refuse d1-firmware.end-effector.dh.ag.
+refuse d1-firmware.end-effector.-dh.ag
+refuse -d1-firmware.end-effector.dh.ag
+refuse d1-firmware.end-effector.dh.ag 1
+refuse d1-firmware.end-effector.dh.äg

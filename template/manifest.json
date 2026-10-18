@@ -1,6 +1,6 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "acme.g1",
+  "id": "d1-firmware.end-effector.acme.g1",
   "version": "0.1.0",
   "package": { "name": "d1-ee-acme", "arch": "arm64", "plane": "apt" },
   "sdk": { "contract": "end_effector.shm/1", "d1_ee_sdk": ">=0.2.0, <0.3.0" },

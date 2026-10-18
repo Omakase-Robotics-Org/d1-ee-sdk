@@ -1,6 +1,6 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "omakase.xhand",
+  "id": "d1-firmware.end-effector.robotera.xhand-lite",
   "version": "0.1.0",
   "package": {
     "name": "d1-ee-xhand",

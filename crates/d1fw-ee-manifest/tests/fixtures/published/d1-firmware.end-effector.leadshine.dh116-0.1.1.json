@@ -1,6 +1,6 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "omakase.leadshine",
+  "id": "d1-firmware.end-effector.leadshine.dh116",
   "version": "0.1.1",
   "package": {
     "name": "d1-ee-leadshine",

@@ -1,6 +1,6 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "omakase.linkerbot",
+  "id": "d1-firmware.end-effector.linkerbot.o30",
   "version": "0.1.1",
   "package": {
     "name": "d1-ee-linkerbot",
