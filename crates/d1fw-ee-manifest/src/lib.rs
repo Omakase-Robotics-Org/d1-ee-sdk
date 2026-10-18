@@ -61,6 +61,17 @@ pub const CONFIG_SCHEMA_DRAFT: &str = "https://json-schema.org/draft/2020-12/sch
 /// pattern and d1-provisioning's reader use this expression verbatim.
 pub const COMMAND_PATTERN: &str = "^/[A-Za-z0-9_./{}=:,@+-]+( [A-Za-z0-9_./{}=:,@+-]+)*$";
 
+/// `id`: two to six dot-separated segments of lowercase ASCII letters, digits
+/// and `-`, each starting with a letter or digit, at most 64 characters in
+/// all ([`ID_MAX_LENGTH`]). The convention is
+/// `d1-firmware.end-effector.<vendor>.<model>`; an id of the earlier
+/// `<vendor>.<name>` form still matches. The schema's pattern and
+/// d1-provisioning's reader use this expression verbatim.
+pub const ID_PATTERN: &str = "^[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*){1,5}$";
+
+/// The longest `id`, in characters.
+pub const ID_MAX_LENGTH: usize = 64;
+
 /// A version range (`sdk.d1_ee_sdk`, a fit's `provider.version`):
 /// comparators joined by commas, each an optional operator (`>=`, `<=`, `>`,
 /// `<`, `=`; none is `=`) and a plain `MAJOR.MINOR.PATCH`, spaces around the
@@ -74,7 +85,8 @@ pub const RANGE_PATTERN: &str = "^ *(>=|<=|>|<|=)? *(0|[1-9][0-9]*)\\.(0|[1-9][0
 pub struct ProviderManifest {
     /// [`SCHEMA_ID`].
     pub schema: String,
-    /// `<vendor>.<name>`: the name a fit references, and the registry entry
+    /// `d1-firmware.end-effector.<vendor>.<model>` by convention
+    /// ([`ID_PATTERN`]): the name a fit references, and the registry entry
     /// name of a provider the hub distributes.
     pub id: String,
     /// The release; equal to the Debian package's version.
@@ -390,12 +402,11 @@ impl ProviderManifest {
         serde_json::to_string_pretty(self).expect("a manifest serializes")
     }
 
-    /// The vendor segment of `id`, before the dot.
+    /// The vendor segment of `id`: the one before the last, `<vendor>` in
+    /// `d1-firmware.end-effector.<vendor>.<model>`.
     #[must_use]
     pub fn vendor(&self) -> &str {
-        self.id
-            .split_once('.')
-            .map_or(self.id.as_str(), |(vendor, _)| vendor)
+        self.id.rsplit('.').nth(1).unwrap_or(self.id.as_str())
     }
 
     /// The `sdk.d1_ee_sdk` range.

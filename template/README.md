@@ -34,7 +34,7 @@ Commit the `Cargo.lock` the first build writes.
 | program | `d1-ee-acme-provider` | the binary and its crate |
 | model | `acme/g1` | the descriptor's `model`, `<maker>/<model>` |
 | driver | `acme-g1` | the descriptor's `driver` |
-| id | `acme.g1` | the manifest's `id`, `<vendor>.<name>`, lowercase: the name a fit document references the provider by, with its `version` |
+| id | `d1-firmware.end-effector.acme.g1` | the manifest's `id`, `d1-firmware.end-effector.<vendor>.<model>`, lowercase: the name a fit document references the provider by, with its `version` |
 
 ## Layout
 

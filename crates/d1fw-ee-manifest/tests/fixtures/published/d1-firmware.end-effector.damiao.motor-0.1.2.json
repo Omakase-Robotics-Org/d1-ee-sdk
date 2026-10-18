@@ -1,6 +1,6 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "omakase.damiao",
+  "id": "d1-firmware.end-effector.damiao.motor",
   "version": "0.1.2",
   "package": {
     "name": "d1-ee-damiao",

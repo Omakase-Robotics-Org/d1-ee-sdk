@@ -83,7 +83,7 @@ workspace version.
 | Field | Rule |
 | --- | --- |
 | `schema` | `omakase-ee-provider/1` |
-| `id` | `<vendor>.<name>`, lowercase `[a-z0-9-]` in each segment: the name a fit references |
+| `id` | `d1-firmware.end-effector.<vendor>.<model>` (below): the name a fit references |
 | `version` | `MAJOR.MINOR.PATCH`, equal to the package's version (no pre-release suffix, which Debian orders differently) |
 | `package` | `{name, arch, plane}`; `arch` `arm64`, `amd64`, or `all` for an architecture-independent package; `plane` `apt` for a package installed with dpkg or from an apt source of your own |
 | `sdk` | `contract` `end_effector.shm/1`; `d1_ee_sdk` a version range (below) such as `">=0.2.0, <0.3.0"` |
@@ -96,6 +96,21 @@ workspace version.
 | `conformance` | `harness` `d1fw-ee-harness`; `version` the harness release the run used, inside `sdk.d1_ee_sdk`; `run_url` optional: an https URL of a CI run, an absolute path of a local run log, or a hex digest (the commit, or the log's SHA-256) |
 
 Nothing in a manifest needs a network to be read or checked.
+
+An **id** is a dotted namespace: two to six segments of lowercase
+`[a-z0-9-]`, each starting with a letter or digit, at most 64 characters:
+
+```text
+^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,5}$
+```
+
+The convention is `d1-firmware.end-effector.<vendor>.<model>`: the slot the
+provider fills (an end effector of d1-firmware), the maker, and the model
+or model family the release drives, e.g. `d1-firmware.end-effector.dh.ag`
+for a DH-Robotics AG gripper. One id covers every model its manifest's
+`models[]` lists: `d1-firmware.end-effector.damiao.motor` drives both
+`damiao-v1.1` and `damiao-v1.2`. The id names the provider, not its
+package: the Debian package keeps its own name (`d1-ee-<vendor>`).
 
 A **version range** (`sdk.d1_ee_sdk`, and the fit's `provider.version`) is a
 list of comparators joined by commas, all of which a version must satisfy.
@@ -119,7 +134,7 @@ matters for `config_schema` property names), and a key given twice in one
 object. A manifest with such a warning cannot be applied on a robot.
 
 `crates/d1fw-ee-manifest/tests/fixtures/rules/` holds the accept and refuse
-cases of the command, the configuration directory and file name, the
+cases of the id, the command, the configuration directory and file name, the
 posture names and the version ranges; d1-provisioning's tests hold its
 reader to the same files.
 
@@ -127,13 +142,14 @@ reader to the same files.
 
 ```sh
 sudo dpkg -i d1-ee-acme_0.1.0_arm64.deb          # or apt from your own source
-d1-provisioning apply --ledger fit.json --provider-manifest acme.g1=manifest.json
+d1-provisioning apply --ledger fit.json \
+  --provider-manifest d1-firmware.end-effector.acme.g1=manifest.json
 ```
 
 `--ledger` is the robot's fit document, here a local file naming
-`{"id": "acme.g1", "version": "0.1.0"}` on the side; `--provider-manifest
-<id>=<file>` gives d1-provisioning the manifest for that `id` from a local
-file. This is a supported path for development, partners and customers, not
+`{"id": "d1-firmware.end-effector.acme.g1", "version": "0.1.0"}` on the
+side; `--provider-manifest <id>=<file>` gives d1-provisioning the manifest
+for that `id` from a local file. This is a supported path for development, partners and customers, not
 an error state: the robot reports the side's provider as an **unregistered
 provider** (applied from a local manifest rather than resolved from a
 registry), and runs it like any other.
@@ -204,3 +220,21 @@ is the same document either way.
   vendor namespace (and the signed manifest's `sha256` and `sizeBytes` pin a
   `registry` package's bytes); `conformance` says the release passed the
   harness; the guard envelope stays the daemon's, as above.
+
+The providers the hub distributes, by id:
+
+| id | package | first published version |
+| --- | --- | --- |
+| `d1-firmware.end-effector.dh.ag` | d1-ee-ag (DH-Robotics AG-100-100) | 0.1.1 |
+| `d1-firmware.end-effector.damiao.motor` | d1-ee-damiao (damiao-v1.1, damiao-v1.2) | 0.1.2 |
+| `d1-firmware.end-effector.linkerbot.o30` | d1-ee-linkerbot (Linkerbot O30) | 0.1.1 |
+| `d1-firmware.end-effector.leadshine.dh116` | d1-ee-leadshine (Leadshine DH116S) | 0.1.1 |
+| `d1-firmware.end-effector.robotera.xhand-lite` | d1-ee-xhand (ROBOTERA XHAND1 Lite) | 0.1.0 |
+
+**Retired ids.** The same releases were first published under the ids
+`omakase.ag`, `omakase.damiao`, `omakase.linkerbot`, `omakase.leadshine`
+and `omakase.xhand`. Registry entries are permanent, so those entries stay
+on the hub, byte for byte, but they are retired: no new release is
+published under them, and a fit names the `d1-firmware.end-effector.*` id
+instead (the fit of d1-3 does from revision 2). A reader still accepts the
+retired ids, which match the id pattern.

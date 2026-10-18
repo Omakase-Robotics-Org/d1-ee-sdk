@@ -23,10 +23,10 @@
       "const": "omakase-ee-provider/1"
     },
     "id": {
-      "description": "`<vendor>.<name>`, lowercase: the name a fit document references the provider by, with `version`; for a provider the artifacts hub distributes, also its registry entry name.",
+      "description": "A dotted namespace of two to six lowercase segments, by convention `d1-firmware.end-effector.<vendor>.<model>`: the name a fit document references the provider by, with `version`; for a provider the artifacts hub distributes, also its registry entry name.",
       "type": "string",
       "maxLength": 64,
-      "pattern": "^[a-z0-9][a-z0-9-]{0,31}\\.[a-z0-9][a-z0-9-]{0,31}$"
+      "pattern": "^[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*){1,5}$"
     },
     "version": {
       "description": "The release, equal to the Debian package's version: MAJOR.MINOR.PATCH with no pre-release or build suffix.",
