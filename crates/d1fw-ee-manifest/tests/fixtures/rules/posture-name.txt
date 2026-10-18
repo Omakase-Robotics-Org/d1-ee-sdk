@@ -1,0 +1,14 @@
+# Posture name cases (the keys of models[].postures): one per line,
+# "accept " or "refuse " and the value, to the end of the line. This file is
+# identical in d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and
+# d1-provisioning (tests/fixtures/ee-manifest-rules/): the SDK's validator
+# and the on-robot reader are held to the same verdicts.
+accept pinch
+accept pinch_2
+accept p
+accept a2345678901234567890123456789012
+refuse Pinch
+refuse 2pinch
+refuse _pinch
+refuse pinch-2
+refuse a23456789012345678901234567890123

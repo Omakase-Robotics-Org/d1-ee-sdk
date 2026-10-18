@@ -1,0 +1,152 @@
+{
+  "schema": "omakase-ee-provider/1",
+  "id": "omakase.damiao",
+  "version": "0.1.2",
+  "package": {
+    "name": "d1-ee-damiao",
+    "arch": "arm64",
+    "plane": "apt"
+  },
+  "sdk": {
+    "contract": "end_effector.shm/1",
+    "d1_ee_sdk": ">=0.1.0, <0.2.0"
+  },
+  "launch": {
+    "command": "/opt/d1-ee-damiao/bin/d1-ee-damiao-provider --side {side}",
+    "config_dir": "/etc/d1-firmwared/ee-provider",
+    "config_file": "{side}.toml"
+  },
+  "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "d1-ee-damiao side configuration",
+    "description": "/etc/d1-firmwared/ee-provider/<side>.toml. Every key is optional; a missing file is a damiao-v1.1 with every built-in value. Rules across keys (open_rad below the model's open stop, 1.55 for damiao-v1.1 and 1.41 for damiao-v1.2; a preset naming torque_nm or i_des, not both) are the provider's own start-up check.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "model": {
+        "enum": [
+          "damiao-v1.1",
+          "damiao-v1.2"
+        ],
+        "default": "damiao-v1.1"
+      },
+      "open_rad": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "exclusiveMaximum": 1.55,
+        "description": "the commanded open ceiling, motor radians; default 1.45 (damiao-v1.1) or 1.31 (damiao-v1.2)"
+      },
+      "close_speed_rad_s": {
+        "type": "number",
+        "minimum": 0.2,
+        "maximum": 4.0,
+        "default": 2.4
+      },
+      "grip": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "soft": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "torque_nm": {
+                "type": "number",
+                "minimum": 0.3,
+                "maximum": 2.0,
+                "description": "the preset's current cap, newton-metres; not with i_des"
+              },
+              "i_des": {
+                "type": "number",
+                "minimum": 0.03,
+                "maximum": 0.2,
+                "description": "an explicit per-unit current cap, sent as is; not with torque_nm"
+              }
+            }
+          },
+          "firm": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "torque_nm": {
+                "type": "number",
+                "minimum": 0.3,
+                "maximum": 2.0,
+                "description": "the preset's current cap, newton-metres; not with i_des"
+              },
+              "i_des": {
+                "type": "number",
+                "minimum": 0.03,
+                "maximum": 0.2,
+                "description": "an explicit per-unit current cap, sent as is; not with torque_nm"
+              }
+            }
+          },
+          "strong": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "torque_nm": {
+                "type": "number",
+                "minimum": 0.3,
+                "maximum": 2.0,
+                "description": "the preset's current cap, newton-metres; not with i_des"
+              },
+              "i_des": {
+                "type": "number",
+                "minimum": 0.03,
+                "maximum": 0.2,
+                "description": "an explicit per-unit current cap, sent as is; not with torque_nm"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "model": "damiao-v1.1",
+      "driver": "damiao",
+      "links": [
+        "flange"
+      ],
+      "joints": 1,
+      "postures": {
+        "open": [
+          1.0
+        ],
+        "closed": [
+          0.0
+        ]
+      }
+    },
+    {
+      "model": "damiao-v1.2",
+      "driver": "damiao",
+      "links": [
+        "flange"
+      ],
+      "joints": 1,
+      "postures": {
+        "open": [
+          1.0
+        ],
+        "closed": [
+          0.0
+        ]
+      }
+    }
+  ],
+  "guard_models": [
+    "d1/parallel_gripper"
+  ],
+  "calibration": {
+    "required": false
+  },
+  "conformance": {
+    "harness": "d1fw-ee-harness",
+    "version": "0.1.0",
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-damiao/actions/runs/39026928742"
+  }
+}

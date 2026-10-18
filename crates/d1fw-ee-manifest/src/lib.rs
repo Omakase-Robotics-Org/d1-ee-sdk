@@ -8,12 +8,16 @@
 //!
 //! 1. the JSON Schema committed as `schema/omakase-ee-provider-1.schema.json`
 //!    ([`SCHEMA_JSON`]), the shape every reader can check with any validator;
-//! 2. the rules a JSON Schema cannot state: the SemVer range of
-//!    `sdk.d1_ee_sdk` and the conformance harness inside it, `{side}` as the
-//!    only placeholder, the program under `/opt/<package>/bin/`, a registry
-//!    key naming this release's `.deb`, one posture
-//!    value per joint, distinct models, and `config_schema` itself a usable
-//!    draft 2020-12 schema.
+//! 2. the rules a JSON Schema cannot state: the conformance harness inside
+//!    the `sdk.d1_ee_sdk` range, `{side}` as the only placeholder, the
+//!    program under `/opt/<package>/bin/`, a registry key naming this
+//!    release's `.deb`, one posture value per joint, distinct models, and
+//!    `config_schema` itself a usable draft 2020-12 schema.
+//!
+//! d1-provisioning's on-robot reader (`/usr/lib/d1-host/end-effectors`, a
+//! shell program) holds a manifest to the same rules. Its JSON tokenizer
+//! takes less than JSON: [`reader_warnings`] names what it refuses, so that
+//! a manifest valid here is not refused on the robot.
 //!
 //! [`ProviderManifest::check_descriptor`] holds a manifest to what a
 //! provider actually announced (`GET /v1/end_effectors/{side}`): the model
@@ -50,6 +54,20 @@ pub const SIDE_PLACEHOLDER: &str = "{side}";
 /// The meta-schema a `config_schema` is written in.
 pub const CONFIG_SCHEMA_DRAFT: &str = "https://json-schema.org/draft/2020-12/schema";
 
+/// `launch.command`: an absolute program and its arguments, words of ASCII
+/// letters, digits and `_./{}=:,@+-` separated by single spaces. The unit
+/// word-splits the value without a shell parse; every quoting, expansion,
+/// redirection, glob and comment character is outside the set. The schema's
+/// pattern and d1-provisioning's reader use this expression verbatim.
+pub const COMMAND_PATTERN: &str = "^/[A-Za-z0-9_./{}=:,@+-]+( [A-Za-z0-9_./{}=:,@+-]+)*$";
+
+/// A version range (`sdk.d1_ee_sdk`, a fit's `provider.version`):
+/// comparators joined by commas, each an optional operator (`>=`, `<=`, `>`,
+/// `<`, `=`; none is `=`) and a plain `MAJOR.MINOR.PATCH`, spaces around the
+/// operator and the commas. The schema's pattern and d1-provisioning's
+/// reader use this expression verbatim.
+pub const RANGE_PATTERN: &str = "^ *(>=|<=|>|<|=)? *(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*) *(, *(>=|<=|>|<|=)? *(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*) *)*$";
+
 /// One release of a provider.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,8 +85,10 @@ pub struct ProviderManifest {
     pub sdk: Sdk,
     /// How a side's unit runs it.
     pub launch: Launch,
-    /// The JSON Schema (draft 2020-12) of a side's configuration file.
-    pub config_schema: Map<String, Value>,
+    /// The JSON Schema (draft 2020-12) of a side's configuration file;
+    /// `None` for a provider that reads none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_schema: Option<Map<String, Value>>,
     /// Every model the release drives.
     pub models: Vec<Model>,
     /// Every guard envelope id a descriptor of the release declares.
@@ -129,7 +149,7 @@ pub enum Plane {
 pub struct Sdk {
     /// [`CONTRACT`].
     pub contract: String,
-    /// A Cargo-syntax SemVer range of d1-ee-sdk releases.
+    /// The d1-ee-sdk releases, a comparator list ([`RANGE_PATTERN`]).
     pub d1_ee_sdk: String,
 }
 
@@ -139,10 +159,14 @@ pub struct Sdk {
 pub struct Launch {
     /// The `EE_PROVIDER_COMMAND` template.
     pub command: String,
-    /// The directory of the per-side configuration file.
-    pub config_dir: String,
-    /// The per-side configuration file name template.
-    pub config_file: String,
+    /// The directory of the per-side configuration file; `None` for a
+    /// provider that reads none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_dir: Option<String>,
+    /// The per-side configuration file name template; `None` with
+    /// `config_dir`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_file: Option<String>,
 }
 
 /// One model of `models`.
@@ -271,6 +295,46 @@ fn schema_problems(value: &Value) -> Vec<Problem> {
         .collect()
 }
 
+/// The schema's verdicts that a validator words as a raw pattern or
+/// subschema, said in the manifest's terms.
+fn plain_words(value: &Value) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    if let Some(Err(error)) = value
+        .pointer("/sdk/d1_ee_sdk")
+        .and_then(Value::as_str)
+        .map(version_range)
+    {
+        problems.push(Problem::new("/sdk/d1_ee_sdk", error));
+    }
+    let given: Vec<&str> = [
+        ("/launch/config_dir", "launch.config_dir"),
+        ("/launch/config_file", "launch.config_file"),
+        ("/config_schema", "config_schema"),
+    ]
+    .into_iter()
+    .filter(|(pointer, _)| value.pointer(pointer).is_some())
+    .map(|(_, name)| name)
+    .collect();
+    if !given.is_empty() && given.len() < 3 {
+        problems.push(Problem::new(
+            "/launch",
+            format!(
+                "launch.config_dir, launch.config_file and config_schema are given together or \
+                 not at all (a provider that reads no configuration file names none); given: {}",
+                given.join(", ")
+            ),
+        ));
+    }
+    if given.is_empty() && value.pointer("/calibration/required") == Some(&Value::Bool(true)) {
+        problems.push(Problem::new(
+            "/calibration/required",
+            "true, but the provider reads no configuration file to append a calibration to"
+                .to_owned(),
+        ));
+    }
+    problems
+}
+
 impl ProviderManifest {
     /// Read and check a manifest's JSON text.
     ///
@@ -290,8 +354,9 @@ impl ProviderManifest {
     ///
     /// As [`Self::parse`].
     pub fn from_value(value: &Value) -> Result<Self, Invalid> {
-        let problems = schema_problems(value);
+        let mut problems = schema_problems(value);
         if !problems.is_empty() {
+            problems.extend(plain_words(value));
             return Err(Invalid(problems));
         }
         let manifest: Self = serde_json::from_value(value.clone())
@@ -337,9 +402,9 @@ impl ProviderManifest {
     ///
     /// # Errors
     ///
-    /// The parse error of a range that is not Cargo SemVer syntax.
-    pub fn sdk_range(&self) -> Result<VersionReq, semver::Error> {
-        VersionReq::parse(&self.sdk.d1_ee_sdk)
+    /// As [`version_range`].
+    pub fn sdk_range(&self) -> Result<VersionReq, String> {
+        version_range(&self.sdk.d1_ee_sdk)
     }
 
     /// The `EE_PROVIDER_COMMAND` of `side`.
@@ -352,16 +417,19 @@ impl ProviderManifest {
         Ok(self.launch.command.replace(SIDE_PLACEHOLDER, side))
     }
 
-    /// The configuration file of `side`.
+    /// The configuration file of `side`, or `None` for a provider that
+    /// reads none.
     ///
     /// # Errors
     ///
     /// A side other than [`SIDES`].
-    pub fn config_path_for(&self, side: &str) -> Result<String, String> {
+    pub fn config_path_for(&self, side: &str) -> Result<Option<String>, String> {
         check_side(side)?;
-        let file = self.launch.config_file.replace(SIDE_PLACEHOLDER, side);
-        let dir = self.launch.config_dir.trim_end_matches('/');
-        Ok(format!("{dir}/{file}"))
+        let (Some(dir), Some(file)) = (&self.launch.config_dir, &self.launch.config_file) else {
+            return Ok(None);
+        };
+        let file = file.replace(SIDE_PLACEHOLDER, side);
+        Ok(Some(format!("{dir}/{file}")))
     }
 
     /// The entry of `model`.
@@ -391,13 +459,7 @@ impl ProviderManifest {
             }
         }
         match self.sdk_range() {
-            Err(error) => problem(
-                "/sdk/d1_ee_sdk",
-                format!(
-                    "{:?} is not a Cargo SemVer range: {error}",
-                    self.sdk.d1_ee_sdk
-                ),
-            ),
+            Err(error) => problem("/sdk/d1_ee_sdk", error),
             Ok(range) => match Version::parse(&self.conformance.version) {
                 Err(error) => problem(
                     "/conformance/version",
@@ -429,35 +491,18 @@ impl ProviderManifest {
                 ),
             ),
         }
-        if let Err(message) = template_with_side(&self.launch.config_file) {
+        // The schema holds config_file to a name without a directory and
+        // config_dir to a normal path under /etc; the group of the two and
+        // config_schema is all-or-none.
+        if let Some(file) = &self.launch.config_file
+            && let Err(message) = template_with_side(file)
+        {
             problem("/launch/config_file", message);
         }
-        if self.launch.config_file.contains('/') {
-            problem(
-                "/launch/config_file",
-                "is a file name inside config_dir, without a directory".to_owned(),
-            );
-        }
-        if self
-            .launch
-            .config_dir
-            .split('/')
-            .skip(1)
-            .any(|segment| matches!(segment, "" | "." | ".."))
-            && self.launch.config_dir != "/"
-        {
-            problem(
-                "/launch/config_dir",
-                format!(
-                    "{:?} must be a normal absolute path: no empty, \".\" or \"..\" segment and \
-                     no trailing slash",
-                    self.launch.config_dir
-                ),
-            );
-        }
-
-        for (at, message) in config_schema_problems(&self.config_schema) {
-            problem(&format!("/config_schema{at}"), message);
+        if let Some(config_schema) = &self.config_schema {
+            for (at, message) in config_schema_problems(config_schema) {
+                problem(&format!("/config_schema{at}"), message);
+            }
         }
 
         let mut seen = std::collections::HashSet::new();
@@ -580,6 +625,46 @@ impl ProviderManifest {
             postures,
         })
     }
+}
+
+/// Read a version range: comparators joined by commas, all of which a
+/// version satisfies, each an operator (`>=`, `>`, `<=`, `<`, `=`, or none
+/// for `=`) and a plain `MAJOR.MINOR.PATCH` ([`RANGE_PATTERN`]). Cargo's
+/// other forms (`^`, `~`, wildcards, partial versions, pre-releases) are
+/// refused, and a bare version is exact, as d1-provisioning reads it, not
+/// Cargo's caret.
+///
+/// # Errors
+///
+/// What is wrong with the first comparator that is not one.
+pub fn version_range(text: &str) -> Result<VersionReq, String> {
+    let mut comparators = Vec::new();
+    for part in text.split(',') {
+        let part = part.trim_matches(' ');
+        let (operator, rest) = [">=", "<=", ">", "<", "="]
+            .iter()
+            .find_map(|op| part.strip_prefix(op).map(|rest| (*op, rest)))
+            .unwrap_or(("=", part));
+        let operand = rest.trim_start_matches(' ');
+        let plain = !operand.is_empty()
+            && operand
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || byte == b'.')
+            && operand.split('.').count() == 3;
+        let version = Version::parse(operand)
+            .ok()
+            .filter(|_| plain)
+            .ok_or_else(|| {
+                format!(
+                    "{text:?} is not a version range: {part:?} is not a comparator (an operator \
+                 >=, >, <=, < or = and a plain MAJOR.MINOR.PATCH; no ^, ~, wildcard, partial \
+                 version or pre-release)"
+                )
+            })?;
+        comparators.push(format!("{operator}{version}"));
+    }
+    VersionReq::parse(&comparators.join(", "))
+        .map_err(|error| format!("{text:?} is not a version range: {error}"))
 }
 
 fn check_side(side: &str) -> Result<(), String> {
@@ -711,4 +796,155 @@ pub struct DescriptorMatch {
     pub model: String,
     /// Each posture as joint targets, in the joints' own units.
     pub postures: BTreeMap<String, Vec<f64>>,
+}
+
+/// What d1-provisioning's on-robot reader refuses in a manifest that is
+/// valid JSON, as warnings at JSON pointers: its tokenizer (a shell program,
+/// no JSON library on the robot) takes no `\u`, `\b` or `\f` string escape,
+/// no object key that is empty or holds a `.` (its keys are dotted paths),
+/// and no key given twice in one object (which JSON leaves undefined and
+/// this crate reads as the last). A manifest with a warning passes
+/// [`ProviderManifest::parse`] and is refused by that reader.
+///
+/// `text` that is not JSON yields no warning: [`ProviderManifest::parse`]
+/// refuses it.
+#[must_use]
+pub fn reader_warnings(text: &str) -> Vec<Problem> {
+    if serde_json::from_str::<Value>(text).is_err() {
+        return Vec::new();
+    }
+    let mut scan = Scan {
+        bytes: text.as_bytes(),
+        at: 0,
+        warnings: Vec::new(),
+    };
+    scan.value("");
+    scan.warnings
+}
+
+/// A walk over JSON text already known to parse.
+struct Scan<'a> {
+    bytes: &'a [u8],
+    at: usize,
+    warnings: Vec<Problem>,
+}
+
+impl Scan<'_> {
+    fn peek(&self) -> u8 {
+        self.bytes.get(self.at).copied().unwrap_or(0)
+    }
+
+    fn space(&mut self) {
+        while matches!(self.peek(), b' ' | b'\t' | b'\n' | b'\r') {
+            self.at += 1;
+        }
+    }
+
+    fn warn(&mut self, at: &str, message: String) {
+        self.warnings.push(Problem::new(at, message));
+    }
+
+    fn value(&mut self, at: &str) {
+        self.space();
+        match self.peek() {
+            b'{' => self.object(at),
+            b'[' => self.array(at),
+            b'"' => {
+                self.string(at);
+            }
+            _ => {
+                while !matches!(
+                    self.peek(),
+                    b',' | b'}' | b']' | b' ' | b'\t' | b'\n' | b'\r' | 0
+                ) {
+                    self.at += 1;
+                }
+            }
+        }
+    }
+
+    /// A string from its opening quote; its text with escapes kept as
+    /// written.
+    fn string(&mut self, at: &str) -> String {
+        self.at += 1;
+        let start = self.at;
+        let mut escapes = std::collections::BTreeSet::new();
+        while self.peek() != b'"' {
+            if self.peek() == b'\\' {
+                let escape = self.bytes.get(self.at + 1).copied().unwrap_or(0);
+                if matches!(escape, b'u' | b'b' | b'f') {
+                    escapes.insert(escape as char);
+                }
+                self.at += 2;
+            } else {
+                self.at += 1;
+            }
+        }
+        let raw = String::from_utf8_lossy(&self.bytes[start..self.at]).into_owned();
+        self.at += 1;
+        for escape in escapes {
+            self.warn(
+                at,
+                format!(
+                    "the string escape \\{escape}: d1-provisioning's reader takes only \\\", \\\\, \
+                     \\/, \\n, \\t and \\r (write the character itself)"
+                ),
+            );
+        }
+        raw
+    }
+
+    fn object(&mut self, at: &str) {
+        self.at += 1;
+        let mut keys = std::collections::HashSet::new();
+        loop {
+            self.space();
+            if self.peek() == b'}' {
+                self.at += 1;
+                return;
+            }
+            let key = self.string(at);
+            let child = format!("{at}/{}", key.replace('~', "~0").replace('/', "~1"));
+            if key.is_empty() || key.contains('.') {
+                self.warn(
+                    &child,
+                    format!(
+                        "the key {key:?}: d1-provisioning's reader takes no key that is empty or \
+                         holds a '.' (it reads keys as dotted paths)"
+                    ),
+                );
+            }
+            if !keys.insert(key.clone()) {
+                self.warn(
+                    &child,
+                    format!("the key {key:?} is given twice; d1-provisioning's reader refuses it"),
+                );
+            }
+            self.space();
+            self.at += 1; // ':'
+            self.value(&child);
+            self.space();
+            if self.peek() == b',' {
+                self.at += 1;
+            }
+        }
+    }
+
+    fn array(&mut self, at: &str) {
+        self.at += 1;
+        let mut index = 0;
+        loop {
+            self.space();
+            if self.peek() == b']' {
+                self.at += 1;
+                return;
+            }
+            self.value(&format!("{at}/{index}"));
+            index += 1;
+            self.space();
+            if self.peek() == b',' {
+                self.at += 1;
+            }
+        }
+    }
 }

@@ -1,0 +1,17 @@
+# launch.config_file cases: one per line,
+# "accept " or "refuse " and the value, to the end of the line. This file is
+# identical in d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and
+# d1-provisioning (tests/fixtures/ee-manifest-rules/): the SDK's validator
+# and the on-robot reader are held to the same verdicts.
+accept {side}.toml
+accept ag-{side}.toml
+accept g1+{side}.v2.toml
+refuse ag.toml
+refuse {side}.env
+refuse {side}.conf
+refuse {side}
+refuse {side}/ag.toml
+refuse {arm}.toml
+refuse {side}-{arm}.toml
+refuse {side.toml
+refuse {side} .toml

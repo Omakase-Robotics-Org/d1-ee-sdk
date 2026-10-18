@@ -17,6 +17,21 @@ versions follow `0.x` SemVer (README, "Versions").
   self-contained draft 2020-12 `config_schema`), the check against a
   provider's descriptor, and the command `d1fw-ee-manifest check <file>
   [--descriptor <json>]`. The manifest of d1-ee-ag 0.1.1 is its golden test.
+- The manifest's rules are those of d1-provisioning's on-robot reader, case
+  for case (`crates/d1fw-ee-manifest/tests/fixtures/rules/`, shared with
+  d1-provisioning's tests): a provider that reads no configuration file
+  names none of `launch.config_dir`, `launch.config_file` and
+  `config_schema` (all three or none; `calibration.required` then false);
+  `package.arch` takes `all`; `launch.command` is one character allow-list,
+  `COMMAND_PATTERN`; `launch.config_dir` is a directory of its own under
+  `/etc`, not the daemon's layer directory nor under `/etc/systemd*` or
+  `/etc/apt*`; `launch.config_file` ends in `.toml`; a version range is a
+  comparator list with plain `MAJOR.MINOR.PATCH` operands, a bare version
+  exact (`version_range`, `RANGE_PATTERN`), no Cargo caret, tilde or
+  wildcard. `d1fw-ee-manifest check` warns about valid JSON the reader
+  refuses (`\u`, `\b`, `\f` escapes, empty or dotted keys, a key twice).
+  The published documents (omakase.ag 0.1.1, omakase.damiao 0.1.2,
+  omakase.xhand 0.1.0, the fit of d1-3 revision 1) are test fixtures.
 - `template/`: a provider repository to copy — a crate implementing
   `Provider` over a fake transport, its conformance test against
   `d1fw-ee-harness`, Debian packaging, CI and release workflows, and its

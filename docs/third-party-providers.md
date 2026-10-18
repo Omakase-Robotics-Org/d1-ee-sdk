@@ -23,8 +23,9 @@ described by two documents:
 
 d1-provisioning applies the two: it writes the side's
 `/etc/d1-firmwared/ee-provider/<side>.env` from `launch.command`, the side's
-configuration file at `launch.config_dir`/`launch.config_file` (the fit's
-calibration appended when `calibration.required` is true), and enables
+configuration file at `launch.config_dir`/`launch.config_file` when the
+manifest names one (the fit's calibration appended when
+`calibration.required` is true; a provider that reads no file gets none), and enables
 `d1-firmwared-ee-provider@<side>`. A teleoperation client reads the model's
 `postures` (`open`, `closed`, `pinch`, …) instead of carrying code for the
 hand. Neither d1-provisioning nor the teleoperation stack changes for a new
@@ -84,17 +85,43 @@ workspace version.
 | `schema` | `omakase-ee-provider/1` |
 | `id` | `<vendor>.<name>`, lowercase `[a-z0-9-]` in each segment: the name a fit references |
 | `version` | `MAJOR.MINOR.PATCH`, equal to the package's version (no pre-release suffix, which Debian orders differently) |
-| `package` | `{name, arch, plane}`; `arch` `arm64` or `amd64`; `plane` `apt` for a package installed with dpkg or from an apt source of your own |
-| `sdk` | `contract` `end_effector.shm/1`; `d1_ee_sdk` a Cargo SemVer range such as `">=0.2.0, <0.3.0"` |
-| `launch.command` | the `.env` command: `/opt/<package>/bin/<program>` and its arguments, single spaces, `{side}` the only placeholder and required, no quoting or shell syntax (the unit word-splits it) |
-| `launch.config_dir`, `launch.config_file` | the side's configuration file: an absolute directory, and a file name with `{side}` (e.g. `/etc/d1-ee-acme` and `{side}.toml`) |
-| `config_schema` | JSON Schema draft 2020-12 of the configuration file, its TOML read as JSON; self-contained (no `$ref` outside it) |
-| `models[]` | `model` and `driver` as the descriptor announces them; `links` from `flange`, `can`, `canfd`, `usb-serial`, `ethernet`; `joints` the descriptor's joint count; `postures` named vectors, one value per joint in descriptor order, each a fraction of that joint's range (`0` its `min`, `1` its `max`), `open` and `closed` required when the model has joints |
+| `package` | `{name, arch, plane}`; `arch` `arm64`, `amd64`, or `all` for an architecture-independent package; `plane` `apt` for a package installed with dpkg or from an apt source of your own |
+| `sdk` | `contract` `end_effector.shm/1`; `d1_ee_sdk` a version range (below) such as `">=0.2.0, <0.3.0"` |
+| `launch.command` | the `.env` command: `/opt/<package>/bin/<program>` and its arguments, matching `^/[A-Za-z0-9_./{}=:,@+-]+( [A-Za-z0-9_./{}=:,@+-]+)*$` (ASCII words separated by single spaces, so no quoting, expansion, redirection, glob, comment or systemd `%` specifier: the unit word-splits it), `{side}` the only placeholder and required, the program word holding none |
+| `launch.config_dir`, `launch.config_file` | the side's configuration file, for a provider that reads one: a directory of its own under `/etc` (each segment starting with a letter or digit; not `/etc/d1-firmwared/config.d` or below, the daemon's layers, nor under `/etc/systemd*` or `/etc/apt*`), and a `.toml` file name with `{side}` (e.g. `/etc/d1-ee-acme` and `{side}.toml`) |
+| `config_schema` | JSON Schema draft 2020-12 of the configuration file, its TOML read as JSON; self-contained (no `$ref` outside it). `launch.config_dir`, `launch.config_file` and `config_schema` are given together or not at all: a provider that reads no configuration file (it takes everything from its command line and its descriptor) names none of the three |
+| `models[]` | `model` and `driver` as the descriptor announces them; `links` from `flange`, `can`, `canfd`, `usb-serial`, `ethernet`; `joints` the descriptor's joint count; `postures` named vectors (names matching `^[a-z][a-z0-9_]{0,31}$`), one value per joint in descriptor order, each a fraction of that joint's range (`0` its `min`, `1` its `max`), `open` and `closed` required when the model has joints |
 | `guard_models` | every `guard_model` a descriptor of the release declares |
-| `calibration.required` | `true` when the fit must supply a calibration file, appended to the side's configuration file |
+| `calibration.required` | `true` when the fit must supply a calibration file, appended to the side's configuration file; always `false` for a provider that reads no configuration file |
 | `conformance` | `harness` `d1fw-ee-harness`; `version` the harness release the run used, inside `sdk.d1_ee_sdk`; `run_url` optional: an https URL of a CI run, an absolute path of a local run log, or a hex digest (the commit, or the log's SHA-256) |
 
 Nothing in a manifest needs a network to be read or checked.
+
+A **version range** (`sdk.d1_ee_sdk`, and the fit's `provider.version`) is a
+list of comparators joined by commas, all of which a version must satisfy.
+A comparator is an operator — `>=`, `>`, `<=`, `<`, `=`, or none, which means
+`=` — and a plain `MAJOR.MINOR.PATCH` (no leading zero, no pre-release or
+build suffix); spaces may surround the operator and the commas:
+
+```text
+^ *(>=|<=|>|<|=)? *V *(, *(>=|<=|>|<|=)? *V *)*$     V = (0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)
+```
+
+No other range syntax is taken: no `^`, `~`, `*` or `x` wildcard, partial
+version or `||`. A bare version is exact, where Cargo would read it as a
+caret range: write `">=0.2.0, <0.3.0"`, not `"0.2.0"`, for "any 0.2 release".
+
+`d1fw-ee-manifest check` also warns (exit status unchanged) about JSON that
+d1-provisioning's on-robot reader refuses although it is valid JSON: a
+`\u`, `\b` or `\f` string escape (write the character itself), an object
+key that is empty or holds a `.` (the reader's keys are dotted paths, which
+matters for `config_schema` property names), and a key given twice in one
+object. A manifest with such a warning cannot be applied on a robot.
+
+`crates/d1fw-ee-manifest/tests/fixtures/rules/` holds the accept and refuse
+cases of the command, the configuration directory and file name, the
+posture names and the version ranges; d1-provisioning's tests hold its
+reader to the same files.
 
 ## 5. Install and apply on the robot
 
