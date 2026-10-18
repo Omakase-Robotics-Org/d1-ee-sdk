@@ -8,6 +8,24 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ### Added
 
+- The provider manifest `omakase-ee-provider/1`: its JSON Schema
+  (`schema/omakase-ee-provider-1.schema.json`) and the crate
+  `d1fw-ee-manifest` — the `ProviderManifest` type, the rules the schema
+  cannot state (the SDK range holding the conformance harness, `{side}` as
+  the only placeholder, the program under `/opt/<package>/bin/`, a registry
+  package's key naming the release's `.deb`, one posture value per joint, a
+  self-contained draft 2020-12 `config_schema`), the check against a
+  provider's descriptor, and the command `d1fw-ee-manifest check <file>
+  [--descriptor <json>]`. The manifest of d1-ee-ag 0.1.1 is its golden test.
+- `template/`: a provider repository to copy — a crate implementing
+  `Provider` over a fake transport, its conformance test against
+  `d1fw-ee-harness`, Debian packaging, CI and release workflows, and its
+  `manifest.json` — built and tested against this checkout by
+  `tools/check-template.sh`, a step of CI.
+- `docs/third-party-providers.md`: the developer path from a device to a
+  robot without an Omakase service, what is trusted and what checks what,
+  and the hub route of the providers the artifacts hub distributes.
+
 - `d1-arm-loopbench` reports the daemon's own record of the command path
   after a stream, when the daemon offers it (`GET /v1/arm/command_path`):
   the time of each command per stage inside the daemon over the last second

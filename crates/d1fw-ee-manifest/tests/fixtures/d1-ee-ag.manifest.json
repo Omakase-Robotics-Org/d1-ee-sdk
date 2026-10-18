@@ -1,0 +1,220 @@
+{
+  "schema": "omakase-ee-provider/1",
+  "id": "omakase.ag",
+  "version": "0.1.1",
+  "package": {
+    "name": "d1-ee-ag",
+    "arch": "arm64",
+    "plane": "apt"
+  },
+  "sdk": {
+    "contract": "end_effector.shm/1",
+    "d1_ee_sdk": ">=0.1.0, <0.2.0"
+  },
+  "launch": {
+    "command": "/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}",
+    "config_dir": "/etc/d1-ee-ag",
+    "config_file": "{side}.toml"
+  },
+  "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "d1-ee-ag side configuration",
+    "description": "/etc/d1-ee-ag/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (bus-kind-specific keys, open_permille at least 100 above closed_permille, grip forces not decreasing from soft to strong) are the provider's own start-up check.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "model": {
+        "const": "ag/ag-100-100"
+      },
+      "revision": {
+        "const": "standard-fingertip"
+      },
+      "bus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "flange",
+              "rs485",
+              "can",
+              "canfd"
+            ],
+            "default": "flange"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "rs485 only; a /dev/serial/by-id/ path survives re-enumeration"
+          },
+          "baud": {
+            "enum": [
+              4800,
+              9600,
+              19200,
+              38400,
+              57600,
+              115200,
+              230400,
+              256000,
+              460800,
+              921600,
+              1000000,
+              2000000
+            ],
+            "default": 115200
+          },
+          "parity": {
+            "enum": [
+              "none",
+              "odd",
+              "even"
+            ],
+            "default": "none"
+          },
+          "two_stop_bits": {
+            "type": "boolean",
+            "default": false
+          },
+          "interface": {
+            "type": "string",
+            "minLength": 1,
+            "description": "can / canfd only"
+          },
+          "device_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 247,
+            "default": 1
+          },
+          "fd_min_len": {
+            "enum": [
+              0,
+              12,
+              16,
+              20,
+              24,
+              32,
+              48,
+              64
+            ],
+            "default": 0
+          },
+          "reply_timeout_ms": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 1000
+          }
+        }
+      },
+      "stroke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "closed_permille": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 0
+          },
+          "open_permille": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 1000
+          }
+        }
+      },
+      "motion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "speed_percent": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100,
+            "default": 50
+          },
+          "home_on_first_command": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "grip": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "soft": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "force_percent": {
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 100,
+                "description": "default 20"
+              }
+            }
+          },
+          "firm": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "force_percent": {
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 100,
+                "description": "default 50"
+              }
+            }
+          },
+          "strong": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "force_percent": {
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 100,
+                "description": "default 100"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "model": "ag/ag-100-100",
+      "driver": "ag-100-100",
+      "links": [
+        "flange",
+        "can",
+        "canfd",
+        "usb-serial"
+      ],
+      "joints": 1,
+      "postures": {
+        "open": [
+          1.0
+        ],
+        "closed": [
+          0.0
+        ]
+      }
+    }
+  ],
+  "guard_models": [
+    "ag/ag-100-100"
+  ],
+  "calibration": {
+    "required": false
+  },
+  "conformance": {
+    "harness": "d1fw-ee-harness",
+    "version": "0.1.0",
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-ag/actions/runs/39035875702"
+  }
+}

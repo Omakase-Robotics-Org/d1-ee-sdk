@@ -19,8 +19,12 @@ and ships none of them.
 | `spec/arm_feedback.shm/1.md`, `spec/arm_status.shm/1.md`, `spec/arm_events.shm/1.md`, `spec/arm_command.shm/1.md` (each with `1.layout.json`) | the arm contracts: every arm controller feedback record as the daemon receives it, the daemon's view of the arms, what happens to them, and lease-gated joint commands at up to 1 kHz through the motion guard |
 | `crates/d1fw-arm-shm-contract` | the four arm contracts in Rust: names, messages, the command checks, iceoryx2 settings, the layout documents and their SHA-256 pins |
 | `crates/d1-arm-loopbench` | `d1-arm-loopbench`, a client of the arm contracts that streams commands at a chosen rate and reports the written rate, the daemon-added latency, the end-to-end latency and the controller's missed frames |
+| `schema/omakase-ee-provider-1.schema.json` | the provider manifest `omakase-ee-provider/1`: one release of a provider as the robot's fit references it |
+| `crates/d1fw-ee-manifest` | the manifest's Rust type and rules, the check against a provider's descriptor, and the command `d1fw-ee-manifest check` |
+| `template/` | a provider repository to copy: a crate over a fake transport, its conformance test, packaging, CI and release workflows, and its manifest |
 | `deploy/systemd/d1-firmwared-ee-provider@.service` | the template unit that runs a side's provider (installed by the d1-firmwared package) |
 | `docs/end-effector-shm-interface.md` | the provider author's guide: why the contracts are shaped as they are, writing, testing, packaging and running a provider |
+| `docs/third-party-providers.md` | the developer path from a device to a robot: the template, local conformance, the manifest, installing and applying it on the robot |
 
 ## Getting started
 
@@ -121,6 +125,27 @@ with the robot; their source is not public:
 | `d1-ee-linkerbot` | `linkerbot/o30` (LinkerHand O30) |
 | `d1-ee-leadshine` | `leadshine/dh116s` (Leadshine DH116S) |
 
+## The provider manifest
+
+A provider release is described by a manifest, `omakase-ee-provider/1`
+(`schema/omakase-ee-provider-1.schema.json`): its package, the contract and
+SDK range it was built for, the command a side's unit runs, the JSON Schema
+of its configuration file, the models it drives with their joints and named
+postures, its guard envelope ids, whether it needs a calibration, and its
+conformance run. A robot's fit names a provider by `{id, version}`, and
+d1-provisioning applies the manifest to the side, so a new provider needs no
+change to the robot's provisioning or teleoperation software. The manifest
+is complete offline: a developer applies it from a local file
+(`docs/third-party-providers.md`); the artifacts hub serves the same
+document for the providers it distributes.
+
+```sh
+cargo run -p d1fw-ee-manifest -- check manifest.json --descriptor descriptor.json
+```
+
+`template/` is a provider repository to start from (`template/README.md`);
+`tools/check-template.sh` builds and tests it against this checkout in CI.
+
 ## The arms over shared memory
 
 Beside the end-effector contracts, `d1-firmwared` serves the arms over the
@@ -184,7 +209,8 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
 tools/check-layout-sha.sh
+tools/check-template.sh
 ```
 
-The CI workflow (`.github/workflows/ci.yml`) runs the same four steps on
+The CI workflow (`.github/workflows/ci.yml`) runs the same five steps on
 every pull request, on `main` and on a `v*` tag.

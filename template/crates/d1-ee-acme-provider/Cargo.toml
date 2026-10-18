@@ -1,0 +1,55 @@
+[package]
+name = "d1-ee-acme-provider"
+description = "The ACME G1 gripper as a D1 end-effector provider, served to d1-firmwared over end_effector.shm/1"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "d1-ee-acme-provider"
+path = "src/main.rs"
+
+[dependencies]
+d1fw-ee-provider.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+d1fw-ee-harness.workspace = true
+tempfile.workspace = true
+
+# `cargo deb -p d1-ee-acme-provider` builds the package `d1-ee-acme`: the
+# program under /opt/d1-ee-acme/bin/ and its references under share/. It
+# writes no configuration and enables nothing: which side carries the
+# gripper is the robot's fit, applied by provisioning.
+[package.metadata.deb]
+name = "d1-ee-acme"
+revision = ""
+maintainer = "ACME Robotics <support@acme.example>"
+copyright = "ACME Robotics"
+section = "misc"
+priority = "optional"
+depends = "$auto"
+extended-description = """\
+Serves an ACME G1 gripper on one arm side to d1-firmwared over \
+end_effector.shm/1. Run by d1-firmwared-ee-provider@<side> with \
+EE_PROVIDER_COMMAND=/opt/d1-ee-acme/bin/d1-ee-acme-provider --side <side>; \
+its configuration is /etc/d1-ee-acme/<side>.toml."""
+assets = [
+    ["target/release/d1-ee-acme-provider", "opt/d1-ee-acme/bin/", "755"],
+    ["../../deploy/d1-ee-acme.toml.example", "opt/d1-ee-acme/share/", "644"],
+    ["../../deploy/ee-provider.env.example", "opt/d1-ee-acme/share/", "644"],
+    ["../../manifest.json", "opt/d1-ee-acme/share/", "644"],
+    ["../../README.md", "usr/share/doc/d1-ee-acme/README.md", "644"],
+]

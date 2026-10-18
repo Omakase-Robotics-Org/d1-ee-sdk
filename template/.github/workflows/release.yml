@@ -1,0 +1,116 @@
+# A `v*` tag builds the arm64 package the robots install, runs the
+# conformance test on the same commit, writes the release's manifest.json
+# (this run's URL as conformance.run_url) and checks it against the
+# descriptor the conformance run accepted, and keeps the .deb and the
+# manifest as the run's artifacts. A robot installs the .deb with dpkg (or
+# from the vendor's own apt source) and applies the manifest locally; no
+# Omakase service is involved (d1-ee-sdk docs/third-party-providers.md).
+#
+# The tag must equal [workspace.package] version and manifest.json's
+# `version`.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  DEB_PACKAGE: d1-ee-acme
+  DEB_CRATE: d1-ee-acme-provider
+  DEB_PROGRAM: d1-ee-acme-provider
+  DEB_ARCH: arm64
+  # The first d1-ee-sdk release that carries d1fw-ee-manifest.
+  D1FW_EE_MANIFEST_TAG: v0.3.0
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    # The robots' glibc: `depends = "$auto"` derives the libc6 floor from the
+    # build host.
+    container: ubuntu:22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: tools for the build and the manifest
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git curl jq \
+            build-essential pkg-config dpkg-dev
+      - uses: actions/checkout@v4
+
+      - name: The tag is the workspace and manifest version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(awk '/^\[workspace\.package\]/{s=1;next} /^\[/{s=0} s && /^version[[:space:]]*=/{gsub(/[",[:space:]]/,""); sub(/^version=/,""); print; exit}' Cargo.toml)"
+          [ "${GITHUB_REF_NAME}" = "v$version" ] || { echo "tag ${GITHUB_REF_NAME} is not v$version" >&2; exit 1; }
+          [ "$(jq -r .version manifest.json)" = "$version" ] || { echo "manifest.json version is not $version" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: toolchain
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^rust-version *= *"\(.*\)"/\1/p' Cargo.toml | sed -n 1p)"
+          test -n "$version"
+          curl --proto '=https' --tlsv1.2 -sSfL https://sh.rustup.rs \
+            | sh -s -- -y --profile minimal --default-toolchain "$version" --no-modify-path
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      # The conformance run this release's manifest names.
+      - name: conformance
+        run: cargo test --workspace --all-features --locked
+
+      - run: cargo install cargo-deb --locked
+      - run: cargo deb --locked -p "$DEB_CRATE" --no-strip
+
+      - name: The package is the release it claims to be
+        id: package
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          deb="target/debian/${DEB_PACKAGE}_${RELEASE_VERSION}_${DEB_ARCH}.deb"
+          test -f "$deb" || { echo "no $deb" >&2; exit 1; }
+          [ "$(dpkg-deb -f "$deb" Package)" = "$DEB_PACKAGE" ]
+          [ "$(dpkg-deb -f "$deb" Version)" = "$RELEASE_VERSION" ]
+          [ "$(dpkg-deb -f "$deb" Architecture)" = "$DEB_ARCH" ]
+          contents="$(dpkg-deb -c "$deb")"
+          grep -q -- " ./opt/$DEB_PACKAGE/bin/$DEB_PROGRAM\$" <<<"$contents" \
+            || { echo "the package does not place /opt/$DEB_PACKAGE/bin/$DEB_PROGRAM" >&2; exit 1; }
+          if grep -q -- " ./etc/" <<<"$contents"; then
+            echo "the package places configuration: the robot's commissioning writes it" >&2
+            exit 1
+          fi
+          printf 'path=%s\n' "$deb" >> "$GITHUB_OUTPUT"
+
+      - name: Write the release's manifest
+        env:
+          DEB_PATH: ${{ steps.package.outputs.path }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          jq --arg run "$RUN_URL" '.conformance.run_url = $run' manifest.json > dist/manifest.json
+          cp "$DEB_PATH" dist/
+          sha256sum dist/* | tee dist/SHA256SUMS
+
+      - name: Check the release's manifest
+        run: |
+          set -euo pipefail
+          cargo install --locked --git https://github.com/Omakase-Robotics-Org/d1-ee-sdk \
+            --tag "$D1FW_EE_MANIFEST_TAG" d1fw-ee-manifest
+          d1fw-ee-manifest check dist/manifest.json --descriptor target/conformance/descriptor-a.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DEB_PACKAGE }}-${{ steps.version.outputs.version }}-${{ env.DEB_ARCH }}
+          path: dist/
+          if-no-files-found: error

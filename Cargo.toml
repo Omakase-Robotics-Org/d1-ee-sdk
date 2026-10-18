@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+# The provider template is a workspace of its own, copied out of this
+# repository; CI builds it against this checkout.
+exclude = ["template"]
 
 [workspace.package]
 version = "0.2.0"
@@ -32,6 +35,8 @@ sha2 = "0.11"
 # the validator must never reach the network to resolve a $ref.
 jsonschema = { version = "0.55", default-features = false }
 tempfile = "3"
+# SemVer versions and Cargo-syntax ranges of the provider manifest.
+semver = "1"
 # --- this repository ---
 d1fw-canfd = { path = "crates/d1fw-canfd" }
 d1fw-ee-shm-contract = { path = "crates/d1fw-ee-shm-contract" }
@@ -40,6 +45,7 @@ d1-arm-loopbench = { path = "crates/d1-arm-loopbench" }
 d1fw-ee-provider = { path = "crates/d1fw-ee-provider" }
 d1fw-ee-hand = { path = "crates/d1fw-ee-hand" }
 d1fw-ee-harness = { path = "crates/d1fw-ee-harness" }
+d1fw-ee-manifest = { path = "crates/d1fw-ee-manifest" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

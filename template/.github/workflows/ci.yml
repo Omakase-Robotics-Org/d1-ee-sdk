@@ -1,0 +1,64 @@
+# The gate on every pull request and on main: formatted, lint-clean, green
+# (the provider's conformance against the SDK's host included), the package
+# builds, and manifest.json agrees with the descriptor the conformance run
+# accepted.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The first d1-ee-sdk release that carries d1fw-ee-manifest.
+  D1FW_EE_MANIFEST_TAG: v0.3.0
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-version in Cargo.toml is the contract; install exactly that.
+      - name: rust toolchain
+        run: |
+          set -eu
+          version="$(sed -n 's/^rust-version *= *"\(.*\)"/\1/p' Cargo.toml | sed -n 1p)"
+          test -n "$version"
+          rustup toolchain install "$version" --profile minimal --component rustfmt,clippy
+          rustup default "$version"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      # Writes target/conformance/descriptor-a.json.
+      - name: test
+        run: cargo test --workspace --all-features --locked
+
+      - name: manifest
+        run: |
+          set -euo pipefail
+          cargo install --locked --git https://github.com/Omakase-Robotics-Org/d1-ee-sdk \
+            --tag "$D1FW_EE_MANIFEST_TAG" d1fw-ee-manifest
+          d1fw-ee-manifest check manifest.json --descriptor target/conformance/descriptor-a.json
+
+      - name: package (x86_64)
+        run: |
+          set -euo pipefail
+          cargo install cargo-deb --locked
+          cargo deb --locked -p d1-ee-acme-provider
+          dpkg-deb -c target/debian/d1-ee-acme_*.deb

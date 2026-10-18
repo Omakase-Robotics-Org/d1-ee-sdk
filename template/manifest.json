@@ -1,0 +1,38 @@
+{
+  "schema": "omakase-ee-provider/1",
+  "id": "acme.g1",
+  "version": "0.1.0",
+  "package": { "name": "d1-ee-acme", "arch": "arm64", "plane": "apt" },
+  "sdk": { "contract": "end_effector.shm/1", "d1_ee_sdk": ">=0.2.0, <0.3.0" },
+  "launch": {
+    "command": "/opt/d1-ee-acme/bin/d1-ee-acme-provider --side {side}",
+    "config_dir": "/etc/d1-ee-acme",
+    "config_file": "{side}.toml"
+  },
+  "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "d1-ee-acme side configuration",
+    "description": "/etc/d1-ee-acme/<side>.toml. Every key is optional; a missing file is every built-in value.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "device_id": { "type": "integer", "minimum": 1, "maximum": 247, "default": 1 },
+      "speed_percent": { "type": "integer", "minimum": 5, "maximum": 100, "default": 50 }
+    }
+  },
+  "models": [
+    {
+      "model": "acme/g1",
+      "driver": "acme-g1",
+      "links": ["usb-serial"],
+      "joints": 1,
+      "postures": { "open": [1.0], "closed": [0.0] }
+    }
+  ],
+  "guard_models": ["acme/g1"],
+  "calibration": { "required": false },
+  "conformance": {
+    "harness": "d1fw-ee-harness",
+    "version": "0.2.0"
+  }
+}

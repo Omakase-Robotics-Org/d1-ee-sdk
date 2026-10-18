@@ -1,0 +1,21 @@
+{
+  "side": "a",
+  "fitted": true,
+  "available": true,
+  "descriptor": {
+    "driver": "ag-100-100",
+    "detail_schema": "ag.report/1",
+    "model": "ag/ag-100-100",
+    "node_id": 1,
+    "joints": [
+      {
+        "name": "jaw",
+        "unit": "fraction",
+        "min": 0.0,
+        "max": 1.0
+      }
+    ],
+    "guard_model": "ag/ag-100-100",
+    "guard_model_applied": "d1/parallel_gripper"
+  }
+}
