@@ -80,3 +80,29 @@ fn the_schema_command_prints_the_committed_schema() {
     assert_eq!(code, 0);
     assert_eq!(out, d1fw_ee_manifest::SCHEMA_JSON);
 }
+
+#[test]
+fn a_provider_without_a_configuration_file_is_valid() {
+    let (code, out, err) = run(&["check", &fixture("published/omakase.leadshine-0.1.1.json")]);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.contains("config none (the provider reads no file)"),
+        "{out}"
+    );
+}
+
+#[test]
+fn what_the_on_robot_reader_refuses_is_a_warning_with_exit_0() {
+    let dir = tempfile::tempdir().expect("a directory");
+    let path = dir.path().join("manifest.json");
+    let text = include_str!("fixtures/d1-ee-ag.manifest.json")
+        .replace("side configuration", "side configur\\u0061tion");
+    std::fs::write(&path, text).expect("write");
+    let (code, out, err) = run(&["check", &path.display().to_string()]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("valid omakase.ag 0.1.1"), "{out}");
+    assert!(
+        err.contains("warning: /config_schema/title: the string escape \\u"),
+        "{err}"
+    );
+}

@@ -1,0 +1,43 @@
+# launch.command cases, for a manifest whose package.name is d1-ee-ag: one per line,
+# "accept " or "refuse " and the value, to the end of the line. This file is
+# identical in d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and
+# d1-provisioning (tests/fixtures/ee-manifest-rules/): the SDK's validator
+# and the on-robot reader are held to the same verdicts.
+accept /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}
+accept /opt/d1-ee-ag/bin/d1-ee-ag-provider --side={side}
+accept /opt/d1-ee-ag/bin/d1-ee-ag-provider {side} --bus=can0,can1 --node=@1 --gain=+0.5:x_y
+accept /opt/d1-ee-ag/bin/d1-ee-ag-provider --config=/etc/d1-ee-ag/{side}.toml --side {side}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side a
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {arm}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side side}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} {side}}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}; reboot
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} && reboot
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} | tee /tmp/x
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} > /tmp/x
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} $(id)
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} `id`
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} $HOME
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side '{side}'
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side "{side}"
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} \
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} *.toml
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} ?
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} !
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} ~/x
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} #
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} %i
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} (x)
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} [x]
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} é
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider  --side {side}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side} 
+refuse  /opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}
+refuse d1-ee-ag-provider --side {side}
+refuse /usr/bin/d1-ee-ag-provider --side {side}
+refuse /opt/other/bin/d1-ee-ag-provider --side {side}
+refuse /opt/d1-ee-ag/bin/ --side {side}
+refuse /opt/d1-ee-ag/bin/sub/d1-ee-ag-provider --side {side}
+refuse /opt/d1-ee-ag/bin/{side}-provider --side {side}
+refuse /opt/d1-ee-ag/bin/d1-ee-ag-provider

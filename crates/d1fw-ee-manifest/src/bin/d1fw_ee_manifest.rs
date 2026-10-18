@@ -2,12 +2,14 @@
 //! alone or against the descriptor a provider announced.
 //!
 //! Exit status: 0 valid, 1 invalid, 2 a file that cannot be read or a
-//! descriptor that is not one.
+//! descriptor that is not one. A warning (JSON that d1-provisioning's
+//! on-robot reader refuses, `reader_warnings`) is printed and leaves the
+//! status as it is.
 
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
-use d1fw_ee_manifest::{DescriptorView, ProviderManifest, SCHEMA_JSON, SIDES};
+use d1fw_ee_manifest::{DescriptorView, ProviderManifest, SCHEMA_JSON, SIDES, reader_warnings};
 use serde_json::Value;
 
 /// The command line.
@@ -50,6 +52,9 @@ fn check(file: &PathBuf, descriptor: Option<&PathBuf>) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    for warning in reader_warnings(&text) {
+        eprintln!("{}: warning: {warning}", file.display());
+    }
     let manifest = match ProviderManifest::parse(&text) {
         Ok(manifest) => manifest,
         Err(invalid) => {
@@ -73,6 +78,7 @@ fn check(file: &PathBuf, descriptor: Option<&PathBuf>) -> ExitCode {
         if let (Ok(command), Ok(config)) =
             (manifest.command_for(side), manifest.config_path_for(side))
         {
+            let config = config.unwrap_or_else(|| "none (the provider reads no file)".to_owned());
             println!("  side {side}: EE_PROVIDER_COMMAND={command}  config {config}");
         }
     }

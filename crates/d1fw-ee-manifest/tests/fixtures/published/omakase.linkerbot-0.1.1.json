@@ -1,0 +1,82 @@
+{
+  "schema": "omakase-ee-provider/1",
+  "id": "omakase.linkerbot",
+  "version": "0.1.1",
+  "package": {
+    "name": "d1-ee-linkerbot",
+    "arch": "arm64",
+    "plane": "apt"
+  },
+  "sdk": {
+    "contract": "end_effector.shm/1",
+    "d1_ee_sdk": ">=0.1.0, <0.2.0"
+  },
+  "launch": {
+    "command": "/opt/d1-ee-linkerbot/bin/d1-ee-linkerbot-provider --side {side}"
+  },
+  "models": [
+    {
+      "model": "linkerbot/o30",
+      "driver": "linkerbot-hop",
+      "links": [
+        "flange"
+      ],
+      "joints": 20,
+      "postures": {
+        "open": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "closed": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "guard_models": [],
+  "calibration": {
+    "required": false
+  },
+  "conformance": {
+    "harness": "d1fw-ee-harness",
+    "version": "0.1.0",
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-linkerbot/actions/runs/38907708020"
+  }
+}

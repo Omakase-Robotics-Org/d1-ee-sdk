@@ -1,0 +1,197 @@
+{
+  "schema": "omakase-ee-provider/1",
+  "id": "omakase.xhand",
+  "version": "0.1.0",
+  "package": {
+    "name": "d1-ee-xhand",
+    "arch": "arm64",
+    "plane": "apt"
+  },
+  "sdk": {
+    "contract": "end_effector.shm/1",
+    "d1_ee_sdk": ">=0.2.0, <0.3.0"
+  },
+  "launch": {
+    "command": "/opt/d1-ee-xhand/bin/d1-ee-xhand-provider --side {side}",
+    "config_dir": "/etc/d1-ee-xhand",
+    "config_file": "{side}.toml"
+  },
+  "config_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "d1-ee-xhand side configuration",
+    "description": "/etc/d1-ee-xhand/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (gains.tor_max_ma at most gains.max_tor_max_ma) are the provider's own start-up check.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "model": {
+        "const": "robotera/xhand1-lite"
+      },
+      "link": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "serial"
+            ],
+            "default": "serial",
+            "description": "ethercat is refused: no D1 runs an EtherCAT master"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "default": "/dev/ttyXHAND"
+          },
+          "baud": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "default": 3000000
+          },
+          "hand_id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 125,
+            "default": 0
+          },
+          "header": {
+            "enum": [
+              "55aa",
+              "aa55"
+            ],
+            "default": "55aa"
+          },
+          "crc_low_first": {
+            "type": "boolean",
+            "default": true
+          },
+          "low_latency": {
+            "enum": [
+              "prefer",
+              "require",
+              "off"
+            ],
+            "default": "prefer"
+          },
+          "reply_timeout_ms": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 1000,
+            "default": 30
+          },
+          "info_timeout_ms": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 2000,
+            "default": 200
+          },
+          "info_gap_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 150
+          }
+        }
+      },
+      "motion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "rate_hz": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 83.33333333333333,
+            "default": 50
+          },
+          "max_velocity_rad_s": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 10,
+            "default": 2.0
+          },
+          "tolerated_exchange_failures": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 3
+          }
+        }
+      },
+      "gains": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767,
+            "default": 225
+          },
+          "ki": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767,
+            "default": 0
+          },
+          "kd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767,
+            "default": 12000
+          },
+          "tor_max_ma": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32767,
+            "default": 80
+          },
+          "max_tor_max_ma": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32767,
+            "default": 350
+          }
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "model": "robotera/xhand1-lite",
+      "driver": "xhand1-lite",
+      "links": [
+        "usb-serial"
+      ],
+      "joints": 6,
+      "postures": {
+        "open": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "closed": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "guard_models": [
+    "robotera/xhand1-lite"
+  ],
+  "calibration": {
+    "required": false
+  },
+  "conformance": {
+    "harness": "d1fw-ee-harness",
+    "version": "0.2.0",
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-xhand/actions/runs/39085761323"
+  }
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Omakase-Robotics-Org/d1-ee-sdk/schema/omakase-ee-provider-1.schema.json",
   "title": "omakase-ee-provider/1",
-  "description": "The manifest of one release of a D1 end-effector provider: the package that carries it, the SDK contract it serves, how a side's unit runs it, the configuration it reads, the models it drives and the conformance run that passed. A robot's fit document references a provider by `{id, version}`; the manifest is complete offline, read from a local file or from a hub registry. Rules a JSON Schema cannot state (SemVer ranges, the `{side}` placeholder, the program path, the registry key's file name, posture lengths) are checked by `d1fw-ee-manifest check`.",
+  "description": "The manifest of one release of a D1 end-effector provider: the package that carries it, the SDK contract it serves, how a side's unit runs it, the configuration it reads, the models it drives and the conformance run that passed. A robot's fit document references a provider by `{id, version}`; the manifest is complete offline, read from a local file or from a hub registry. Rules a JSON Schema cannot state (the conformance harness inside the SDK range, `{side}` as the only placeholder, the program path, the registry key's file name, posture lengths) are checked by `d1fw-ee-manifest check`. A provider that reads no configuration file names none of `launch.config_dir`, `launch.config_file` and `config_schema`, and needs no calibration; one that reads one names all three.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,6 @@
     "package",
     "sdk",
     "launch",
-    "config_schema",
     "models",
     "guard_models",
     "calibration",
@@ -47,8 +46,8 @@
           "pattern": "^[a-z0-9][a-z0-9+.-]+$"
         },
         "arch": {
-          "description": "The Debian architecture.",
-          "enum": ["arm64", "amd64"]
+          "description": "The Debian architecture: `arm64` or `amd64` for a compiled program, `all` for an architecture-independent package.",
+          "enum": ["arm64", "amd64", "all"]
         },
         "plane": {
           "description": "Where the package comes from: `apt` (an apt source or a local dpkg install) or `registry` (an artifact on the hub's manifest plane).",
@@ -98,10 +97,11 @@
           "const": "end_effector.shm/1"
         },
         "d1_ee_sdk": {
-          "description": "A SemVer range (Cargo syntax, e.g. \">=0.2.0, <0.3.0\") of the d1-ee-sdk releases the provider builds with.",
+          "description": "The d1-ee-sdk releases the provider builds with: one or more comparators joined by commas, all of which a release satisfies, e.g. \">=0.2.0, <0.3.0\". A comparator is an operator (`>=`, `>`, `<=`, `<`, `=`, or none for `=`) and a plain MAJOR.MINOR.PATCH version; spaces may surround the operator and the commas. No other range syntax is taken: no `^`, `~`, `*` or `x` wildcard, partial version, pre-release or build suffix, and no `||`. The fit's `provider.version` takes the same grammar.",
           "type": "string",
           "minLength": 1,
-          "maxLength": 128
+          "maxLength": 128,
+          "pattern": "^ *(>=|<=|>|<|=)? *(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*) *(, *(>=|<=|>|<|=)? *(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*) *)*$"
         }
       }
     },
@@ -109,37 +109,37 @@
       "description": "How `d1-firmwared-ee-provider@<side>` runs the provider.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["command", "config_dir", "config_file"],
+      "required": ["command"],
       "properties": {
         "command": {
-          "description": "The `EE_PROVIDER_COMMAND` template: an absolute program path under `/opt/<package>/bin/` and its arguments, separated by single spaces. `{side}` is the only placeholder and must appear. The unit word-splits the value without a shell parse, so quoting and shell syntax are refused.",
+          "description": "The `EE_PROVIDER_COMMAND` template: an absolute program path `/opt/<package>/bin/<program>` and its arguments, words of ASCII letters, digits and `_./{}=:,@+-` separated by single spaces. `{side}` is the only placeholder and must appear; the program word holds none. The unit word-splits the value without a shell parse, so quotes, the backquote, `$ ; & | < > ( ) \\ * ? ! ~ # %`, a tab, a newline and every non-ASCII character are outside the allowed set. The same expression is `COMMAND_PATTERN` in d1fw-ee-manifest and in d1-provisioning's reader.",
           "type": "string",
           "maxLength": 512,
           "allOf": [
-            { "pattern": "^/[^ ]+( [^ ]+)*$" },
-            { "pattern": "\\{side\\}" },
-            { "pattern": "^[^'\"`$;&|<>()\\\\*?!~#\\t\\n\\r]*$" }
+            { "pattern": "^/[A-Za-z0-9_./{}=:,@+-]+( [A-Za-z0-9_./{}=:,@+-]+)*$" },
+            { "pattern": "\\{side\\}" }
           ]
         },
         "config_dir": {
-          "description": "The absolute directory of the provider's per-side configuration file. No placeholder.",
+          "description": "The directory of the provider's per-side configuration file: a directory of its own under `/etc`, each segment starting with a letter or digit, no placeholder, no trailing slash. The daemon's layer directory `/etc/d1-firmwared/config.d` (and below) and anything under `/etc/systemd*` or `/etc/apt*` are refused. Present exactly when `config_file` and `config_schema` are.",
           "type": "string",
           "maxLength": 256,
-          "pattern": "^/[A-Za-z0-9._/+-]*$"
+          "pattern": "^/etc(/[A-Za-z0-9][A-Za-z0-9._+-]*)+$",
+          "not": { "pattern": "^(/etc/d1-firmwared/config\\.d(/|$)|/etc/systemd|/etc/apt)" }
         },
         "config_file": {
-          "description": "The file name of a side's configuration inside `config_dir`; `{side}` is the only placeholder and must appear.",
+          "description": "The file name of a side's configuration inside `config_dir`, ending in `.toml` (the file is TOML, and the name can then never be a unit's `<side>.env` beside it); `{side}` is the only placeholder and must appear. Present exactly when `config_dir` and `config_schema` are.",
           "type": "string",
           "maxLength": 64,
           "allOf": [
-            { "pattern": "^[A-Za-z0-9._+{}-]+$" },
+            { "pattern": "^[A-Za-z0-9._+{}-]+\\.toml$" },
             { "pattern": "\\{side\\}" }
           ]
         }
       }
     },
     "config_schema": {
-      "description": "A JSON Schema (draft 2020-12) of the per-side configuration file, its TOML read as JSON. `$schema`, when present, names draft 2020-12.",
+      "description": "A JSON Schema (draft 2020-12) of the per-side configuration file, its TOML read as JSON. `$schema`, when present, names draft 2020-12. Absent for a provider that reads no configuration file, together with `launch.config_dir` and `launch.config_file`.",
       "type": "object"
     },
     "models": {
@@ -163,7 +163,7 @@
       "required": ["required"],
       "properties": {
         "required": {
-          "description": "`true`: the fit supplies a calibration file, appended to the side's configuration file.",
+          "description": "`true`: the fit supplies a calibration file, appended to the side's configuration file; a provider that reads no configuration file needs none (`false`).",
           "type": "boolean"
         }
       }
@@ -190,6 +190,20 @@
           "pattern": "^(https://[^\\s]+|/[^\\s]+|[0-9a-f]{7,64})$"
         }
       }
+    }
+  },
+  "if": { "required": ["config_schema"] },
+  "then": {
+    "properties": { "launch": { "required": ["config_dir", "config_file"] } }
+  },
+  "else": {
+    "properties": {
+      "launch": {
+        "not": {
+          "anyOf": [{ "required": ["config_dir"] }, { "required": ["config_file"] }]
+        }
+      },
+      "calibration": { "properties": { "required": { "const": false } } }
     }
   },
   "$defs": {

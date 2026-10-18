@@ -1,0 +1,33 @@
+# Version range cases (sdk.d1_ee_sdk, a fit's provider.version): one per line,
+# "accept " or "refuse " and the value, to the end of the line. This file is
+# identical in d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and
+# d1-provisioning (tests/fixtures/ee-manifest-rules/): the SDK's validator
+# and the on-robot reader are held to the same verdicts.
+accept >=0.2.0, <0.3.0
+accept >=0.1.2, <0.2.0
+accept =0.1.2
+accept 0.1.2
+accept >0.1.0,<=0.2.0
+accept >= 0.1.0 , < 0.2.0
+accept  >=0.1.0
+accept >=10.20.30, <11.0.0, >10.20.30
+refuse ^0.1.0
+refuse ~0.1.0
+refuse ~>0.1
+refuse *
+refuse 0.1
+refuse 0.1.x
+refuse >=0.1
+refuse >=0.1.0-rc.1
+refuse >=0.1.0+build.1
+refuse >=01.2.3
+refuse >=0.1.0,
+refuse ,>=0.1.0
+refuse >=0.1.0,,<0.2.0
+refuse >=0.1.0 || <0.3.0
+refuse >=0.1.0 <0.2.0
+refuse => 0.1.0
+refuse > = 0.1.0
+refuse ==0.1.0
+refuse v0.1.0
+refuse latest

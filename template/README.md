@@ -64,7 +64,10 @@ Commit the `Cargo.lock` the first build writes.
    refuses a command the descriptor does not admit before it reaches the
    provider.
 3. Describe every configuration key in `manifest.json`'s `config_schema`
-   (JSON Schema draft 2020-12 of the TOML file read as JSON).
+   (JSON Schema draft 2020-12 of the TOML file read as JSON). A provider
+   that reads no configuration file removes `launch.config_dir`,
+   `launch.config_file` and `config_schema` together (and keeps
+   `calibration.required` false).
 4. Keep `manifest.json`'s `models` equal to what the descriptor announces:
    `model`, `driver`, the joint count, the links the device can be reached
    by, and the postures (`open`, `closed`, and any other such as `pinch`),

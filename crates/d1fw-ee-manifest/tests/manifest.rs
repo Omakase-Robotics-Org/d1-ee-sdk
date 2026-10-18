@@ -1,8 +1,13 @@
 //! The manifest `omakase-ee-provider/1`: the committed schema, the golden
-//! manifest of d1-ee-ag 0.1.1, the template's manifest, every rule refused
-//! on a mutation of the golden, and the check against a descriptor.
+//! manifest of d1-ee-ag 0.1.1, the documents the hub publishes, the
+//! template's manifest, every rule refused on a mutation of the golden, the
+//! shared rule cases d1-provisioning's reader is held to as well
+//! (`fixtures/rules/`), and the check against a descriptor.
 
-use d1fw_ee_manifest::{DescriptorView, Link, Plane, ProviderManifest, SCHEMA_JSON, schema};
+use d1fw_ee_manifest::{
+    COMMAND_PATTERN, DescriptorView, Link, Plane, ProviderManifest, RANGE_PATTERN, SCHEMA_JSON,
+    reader_warnings, schema, version_range,
+};
 use serde_json::{Value, json};
 
 const AG_MANIFEST: &str = include_str!("fixtures/d1-ee-ag.manifest.json");
@@ -58,8 +63,8 @@ fn the_golden_manifest_of_d1_ee_ag_is_valid() {
         "the command d1-ee-ag's own .env example names"
     );
     assert_eq!(
-        manifest.config_path_for("b").as_deref(),
-        Ok("/etc/d1-ee-ag/b.toml")
+        manifest.config_path_for("b"),
+        Ok(Some("/etc/d1-ee-ag/b.toml".to_owned()))
     );
     assert!(manifest.command_for("c").is_err());
     let model = manifest.model("ag/ag-100-100").expect("the model");
@@ -87,8 +92,12 @@ fn semver_version(text: &str) -> semver::Version {
 #[test]
 fn the_golden_config_schema_takes_the_example_configuration_and_refuses_a_band() {
     let manifest = ProviderManifest::parse(AG_MANIFEST).expect("valid");
-    let validator = jsonschema::draft202012::new(&Value::Object(manifest.config_schema))
-        .expect("the config schema compiles");
+    let validator = jsonschema::draft202012::new(&Value::Object(
+        manifest
+            .config_schema
+            .expect("the golden reads a configuration file"),
+    ))
+    .expect("the config schema compiles");
     // d1-ee-ag's deploy/d1-ee-ag.toml.example, read as JSON.
     let example = json!({
         "model": "ag/ag-100-100",
@@ -498,4 +507,272 @@ fn a_descriptor_is_read_from_a_sides_answer_or_bare() {
             .contains("no accepted descriptor")
     );
     assert!(DescriptorView::from_json(&json!({"side": "a"})).is_err());
+}
+
+const DAMIAO_MANIFEST: &str = include_str!("fixtures/published/omakase.damiao-0.1.2.json");
+const XHAND_MANIFEST: &str = include_str!("fixtures/published/omakase.xhand-0.1.0.json");
+const LEADSHINE_MANIFEST: &str = include_str!("fixtures/published/omakase.leadshine-0.1.1.json");
+const LINKERBOT_MANIFEST: &str = include_str!("fixtures/published/omakase.linkerbot-0.1.1.json");
+const D1_3_FIT: &str = include_str!("fixtures/published/d1-3.robot-fit-1.json");
+
+fn descriptor(text: &str) -> DescriptorView {
+    DescriptorView::from_json(&serde_json::from_str(text).expect("JSON")).expect("a descriptor")
+}
+
+#[test]
+fn the_published_manifests_are_valid_and_match_their_descriptors() {
+    for text in [AG_MANIFEST, DAMIAO_MANIFEST, XHAND_MANIFEST] {
+        let manifest = ProviderManifest::parse(text).expect("a published manifest is valid");
+        assert!(manifest.config_path_for("a").expect("a side").is_some());
+        assert!(reader_warnings(text).is_empty(), "{}", manifest.id);
+    }
+    let damiao = ProviderManifest::parse(DAMIAO_MANIFEST).expect("valid");
+    for (text, model) in [
+        (
+            include_str!("fixtures/published/damiao-v1.1.descriptor.json"),
+            "damiao-v1.1",
+        ),
+        (
+            include_str!("fixtures/published/damiao-v1.2.descriptor.json"),
+            "damiao-v1.2",
+        ),
+    ] {
+        let matched = damiao.check_descriptor(&descriptor(text)).expect("agrees");
+        assert_eq!(matched.model, model);
+    }
+    // An XHAND's hand id is 0 by default: node_id 0 is an address like any
+    // other.
+    let text = include_str!("fixtures/published/xhand1-lite.descriptor.json");
+    let value: Value = serde_json::from_str(text).expect("JSON");
+    assert_eq!(value["node_id"], json!(0));
+    let xhand = ProviderManifest::parse(XHAND_MANIFEST).expect("valid");
+    let matched = xhand.check_descriptor(&descriptor(text)).expect("agrees");
+    assert_eq!(matched.postures["closed"].len(), 6);
+}
+
+#[test]
+fn a_provider_that_reads_no_configuration_file_names_none() {
+    for text in [LEADSHINE_MANIFEST, LINKERBOT_MANIFEST] {
+        let manifest = ProviderManifest::parse(text).expect("valid without a configuration");
+        assert_eq!(manifest.config_schema, None);
+        assert_eq!(manifest.config_path_for("a"), Ok(None));
+        assert!(!manifest.calibration.required);
+        assert!(reader_warnings(text).is_empty(), "{}", manifest.id);
+        assert_eq!(
+            ProviderManifest::parse(&manifest.to_json_pretty()).expect("round trip"),
+            manifest
+        );
+    }
+    let without = |m: &mut Value, fields: &[&str]| {
+        for field in fields {
+            match *field {
+                "config_schema" => {
+                    m.as_object_mut().expect("manifest").remove("config_schema");
+                }
+                launch => {
+                    m["launch"].as_object_mut().expect("launch").remove(launch);
+                }
+            }
+        }
+    };
+    let mut value = golden();
+    without(&mut value, &["config_dir", "config_file", "config_schema"]);
+    ProviderManifest::from_value(&value).expect("all three absent");
+    // Mixed: any one or two of the three is refused.
+    for fields in [
+        &["config_dir"][..],
+        &["config_file"],
+        &["config_schema"],
+        &["config_dir", "config_file"],
+        &["config_dir", "config_schema"],
+        &["config_file", "config_schema"],
+    ] {
+        let problems = refused(|m| without(m, fields));
+        assert!(!problems.is_empty(), "{fields:?}");
+    }
+    // No file to append a calibration to.
+    assert_refused_at(
+        |m| {
+            without(m, &["config_dir", "config_file", "config_schema"]);
+            m["calibration"]["required"] = json!(true);
+        },
+        "/calibration/required",
+    );
+}
+
+#[test]
+fn the_package_arch_is_arm64_amd64_or_all() {
+    for arch in ["arm64", "amd64", "all"] {
+        let mut value = golden();
+        value["package"]["arch"] = json!(arch);
+        ProviderManifest::from_value(&value).expect("an architecture");
+    }
+    for arch in ["aarch64", "armhf", "any", ""] {
+        assert_refused_at(|m| m["package"]["arch"] = json!(arch), "/package/arch");
+    }
+}
+
+/// The `accept`/`refuse` cases of a rules fixture.
+fn cases(text: &str) -> Vec<(bool, &str)> {
+    text.lines()
+        .filter(|line| !line.starts_with('#') && !line.is_empty())
+        .map(|line| {
+            let (verdict, value) = line.split_once(' ').expect("a verdict and a value");
+            match verdict {
+                "accept" => (true, value),
+                "refuse" => (false, value),
+                other => panic!("verdict {other:?}"),
+            }
+        })
+        .collect()
+}
+
+/// Each case's verdict on the golden with `set` applied to the value.
+fn hold_cases(text: &str, set: impl Fn(&mut Value, &str)) {
+    let all = cases(text);
+    assert!(all.iter().any(|(accept, _)| *accept) && all.iter().any(|(accept, _)| !accept));
+    for (accept, value) in all {
+        let mut manifest = golden();
+        set(&mut manifest, value);
+        let verdict = ProviderManifest::from_value(&manifest);
+        assert_eq!(verdict.is_ok(), accept, "{value:?}: {verdict:?}");
+    }
+}
+
+#[test]
+fn the_launch_command_cases_are_held() {
+    hold_cases(include_str!("fixtures/rules/launch-command.txt"), |m, v| {
+        m["launch"]["command"] = json!(v);
+    });
+    let mut manifest = golden();
+    manifest["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider\t--side {side}");
+    assert!(ProviderManifest::from_value(&manifest).is_err(), "a tab");
+    manifest["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}\n");
+    assert!(
+        ProviderManifest::from_value(&manifest).is_err(),
+        "a newline"
+    );
+}
+
+#[test]
+fn the_config_dir_cases_are_held() {
+    hold_cases(include_str!("fixtures/rules/config-dir.txt"), |m, v| {
+        m["launch"]["config_dir"] = json!(v);
+    });
+}
+
+#[test]
+fn the_config_file_cases_are_held() {
+    hold_cases(include_str!("fixtures/rules/config-file.txt"), |m, v| {
+        m["launch"]["config_file"] = json!(v);
+    });
+}
+
+#[test]
+fn the_posture_name_cases_are_held() {
+    hold_cases(include_str!("fixtures/rules/posture-name.txt"), |m, v| {
+        m["models"][0]["postures"][v] = json!([0.5]);
+    });
+}
+
+#[test]
+fn the_version_range_cases_are_held_by_the_function_and_the_schema_alike() {
+    let pattern =
+        jsonschema::draft202012::new(&json!({"type": "string", "pattern": RANGE_PATTERN}))
+            .expect("the pattern compiles");
+    let all = cases(include_str!("fixtures/rules/version-range.txt"));
+    for (accept, value) in all {
+        assert_eq!(version_range(value).is_ok(), accept, "{value:?}");
+        assert_eq!(
+            pattern.is_valid(&json!(value)),
+            accept,
+            "the pattern on {value:?}"
+        );
+        if accept {
+            // The SDK range of a manifest takes the same grammar.
+            let mut manifest = golden();
+            manifest["sdk"]["d1_ee_sdk"] = json!(value);
+            let verdict = ProviderManifest::from_value(&manifest);
+            if let Err(invalid) = verdict {
+                assert!(
+                    invalid.0.iter().all(|p| p.at == "/conformance/version"),
+                    "{value:?}: {invalid}"
+                );
+            }
+        } else {
+            assert_refused_at(|m| m["sdk"]["d1_ee_sdk"] = json!(value), "/sdk/d1_ee_sdk");
+        }
+    }
+    assert!(version_range("\t>=0.1.0").is_err(), "a tab is not a space");
+    // A bare version is exact, not Cargo's caret.
+    let exact = version_range("0.1.2").expect("a range");
+    assert!(exact.matches(&semver_version("0.1.2")));
+    assert!(!exact.matches(&semver_version("0.1.3")));
+}
+
+#[test]
+fn the_patterns_the_reader_shares_are_the_schemas() {
+    let schema = schema();
+    let command = &schema["properties"]["launch"]["properties"]["command"]["allOf"][0]["pattern"];
+    assert_eq!(command, &json!(COMMAND_PATTERN));
+    let range = &schema["properties"]["sdk"]["properties"]["d1_ee_sdk"]["pattern"];
+    assert_eq!(range, &json!(RANGE_PATTERN));
+}
+
+#[test]
+fn the_fit_of_d1_3_names_ranges_the_grammar_takes() {
+    let fit: Value = serde_json::from_str(D1_3_FIT).expect("JSON");
+    assert_eq!(fit["revision"], json!(1));
+    let damiao = ProviderManifest::parse(DAMIAO_MANIFEST).expect("valid");
+    for side in ["a", "b"] {
+        let provider = &fit["sides"][side]["provider"];
+        assert_eq!(provider["id"], json!(damiao.id));
+        let range = version_range(provider["version"].as_str().expect("a string"))
+            .expect("a range the grammar takes");
+        assert!(range.matches(&semver_version(&damiao.version)));
+        let model = fit["sides"][side]["model"].as_str().expect("a model");
+        assert!(damiao.model(model).is_some(), "{model}");
+        let node = fit["sides"][side]["nodeId"].as_u64().expect("a node id");
+        assert!(node <= 247);
+    }
+    assert!(reader_warnings(D1_3_FIT).is_empty());
+}
+
+#[test]
+fn what_the_on_robot_reader_refuses_is_warned_about() {
+    assert!(reader_warnings(AG_MANIFEST).is_empty());
+    let warnings = |text: &str| -> Vec<String> {
+        ProviderManifest::parse(text).expect("valid: a warning is not a problem");
+        reader_warnings(text)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    };
+    let escaped = AG_MANIFEST.replace(
+        "d1-ee-ag side configuration",
+        "d1-ee-ag side configur\\u0061tion",
+    );
+    assert_eq!(
+        warnings(&escaped),
+        vec![
+            "/config_schema/title: the string escape \\u: d1-provisioning's reader takes only \\\", \
+             \\\\, \\/, \\n, \\t and \\r (write the character itself)"
+                .to_owned()
+        ]
+    );
+    let dotted = AG_MANIFEST.replace("\"stroke\": {", "\"stroke.band\": {");
+    let found = warnings(&dotted);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].starts_with("/config_schema/properties/stroke.band: the key"),
+        "{found:#?}"
+    );
+    let twice = AG_MANIFEST.replace(
+        "\"title\": \"d1-ee-ag side configuration\",",
+        "\"title\": \"d1-ee-ag\", \"title\": \"d1-ee-ag side configuration\",",
+    );
+    let found = warnings(&twice);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(found[0].contains("is given twice"), "{found:#?}");
+    assert!(reader_warnings("not JSON").is_empty());
 }
