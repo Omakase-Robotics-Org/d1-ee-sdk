@@ -1,1 +1,4 @@
 target/
+# The template is resolved against this checkout by tools/check-template.sh;
+# a repository copied from it commits its own lock file.
+template/Cargo.lock

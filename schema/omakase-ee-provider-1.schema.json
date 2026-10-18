@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Omakase-Robotics-Org/d1-ee-sdk/schema/omakase-ee-provider-1.schema.json",
+  "title": "omakase-ee-provider/1",
+  "description": "The manifest of one release of a D1 end-effector provider: the package that carries it, the SDK contract it serves, how a side's unit runs it, the configuration it reads, the models it drives and the conformance run that passed. A robot's fit document references a provider by `{id, version}`; the manifest is complete offline, read from a local file or from a hub registry. Rules a JSON Schema cannot state (SemVer ranges, the `{side}` placeholder, the program path, the registry key's file name, posture lengths) are checked by `d1fw-ee-manifest check`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "version",
+    "package",
+    "sdk",
+    "launch",
+    "config_schema",
+    "models",
+    "guard_models",
+    "calibration",
+    "conformance"
+  ],
+  "properties": {
+    "schema": {
+      "description": "The document type and its major version.",
+      "const": "omakase-ee-provider/1"
+    },
+    "id": {
+      "description": "`<vendor>.<name>`, lowercase: the name a fit document references the provider by, with `version`; for a provider the artifacts hub distributes, also its registry entry name.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}\\.[a-z0-9][a-z0-9-]{0,31}$"
+    },
+    "version": {
+      "description": "The release, equal to the Debian package's version: MAJOR.MINOR.PATCH with no pre-release or build suffix.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "package": {
+      "description": "The Debian package this release installs from. `plane: \"apt\"`: the package is installed by name and version from an apt source (the hub's signed apt suites, a vendor's own source) or is already installed with dpkg; the manifest names no bytes and needs no hub. `plane: \"registry\"`: the .deb is a content-addressed artifact on the hub's manifest plane, beside the manifest, and `key`, `sha256` and `sizeBytes` are its registry entry's fields; a consumer downloads `baseUrl + \"/\" + key`, checks the digest and the size, and installs it with dpkg. For `apt` the three fields are absent.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "arch", "plane"],
+      "properties": {
+        "name": {
+          "description": "The package name as its control stanza spells it.",
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9+.-]+$"
+        },
+        "arch": {
+          "description": "The Debian architecture.",
+          "enum": ["arm64", "amd64"]
+        },
+        "plane": {
+          "description": "Where the package comes from: `apt` (an apt source or a local dpkg install) or `registry` (an artifact on the hub's manifest plane).",
+          "enum": ["registry", "apt"]
+        },
+        "key": {
+          "description": "`plane: registry` only: the .deb's key relative to the hub's baseUrl (`<type>/<name>/<version>/<selector-values>/<filename>`), its file name `<name>_<version>_<arch>.deb`.",
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)+\\.deb$"
+        },
+        "sha256": {
+          "description": "`plane: registry` only: the SHA-256 of the .deb, lowercase hex.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sizeBytes": {
+          "description": "`plane: registry` only: the size of the .deb, bytes.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "if": {
+        "properties": { "plane": { "const": "registry" } }
+      },
+      "then": {
+        "required": ["key", "sha256", "sizeBytes"]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            { "required": ["key"] },
+            { "required": ["sha256"] },
+            { "required": ["sizeBytes"] }
+          ]
+        }
+      }
+    },
+    "sdk": {
+      "description": "What the provider was built against.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "d1_ee_sdk"],
+      "properties": {
+        "contract": {
+          "description": "The shared-memory contract the provider serves.",
+          "const": "end_effector.shm/1"
+        },
+        "d1_ee_sdk": {
+          "description": "A SemVer range (Cargo syntax, e.g. \">=0.2.0, <0.3.0\") of the d1-ee-sdk releases the provider builds with.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "launch": {
+      "description": "How `d1-firmwared-ee-provider@<side>` runs the provider.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "config_dir", "config_file"],
+      "properties": {
+        "command": {
+          "description": "The `EE_PROVIDER_COMMAND` template: an absolute program path under `/opt/<package>/bin/` and its arguments, separated by single spaces. `{side}` is the only placeholder and must appear. The unit word-splits the value without a shell parse, so quoting and shell syntax are refused.",
+          "type": "string",
+          "maxLength": 512,
+          "allOf": [
+            { "pattern": "^/[^ ]+( [^ ]+)*$" },
+            { "pattern": "\\{side\\}" },
+            { "pattern": "^[^'\"`$;&|<>()\\\\*?!~#\\t\\n\\r]*$" }
+          ]
+        },
+        "config_dir": {
+          "description": "The absolute directory of the provider's per-side configuration file. No placeholder.",
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^/[A-Za-z0-9._/+-]*$"
+        },
+        "config_file": {
+          "description": "The file name of a side's configuration inside `config_dir`; `{side}` is the only placeholder and must appear.",
+          "type": "string",
+          "maxLength": 64,
+          "allOf": [
+            { "pattern": "^[A-Za-z0-9._+{}-]+$" },
+            { "pattern": "\\{side\\}" }
+          ]
+        }
+      }
+    },
+    "config_schema": {
+      "description": "A JSON Schema (draft 2020-12) of the per-side configuration file, its TOML read as JSON. `$schema`, when present, names draft 2020-12.",
+      "type": "object"
+    },
+    "models": {
+      "description": "Every model this release drives, as its descriptor announces it.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/model" }
+    },
+    "guard_models": {
+      "description": "Every collision envelope id a descriptor of this release declares as `guard_model`.",
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/name" }
+    },
+    "calibration": {
+      "description": "Whether the provider needs a per-robot calibration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required"],
+      "properties": {
+        "required": {
+          "description": "`true`: the fit supplies a calibration file, appended to the side's configuration file.",
+          "type": "boolean"
+        }
+      }
+    },
+    "conformance": {
+      "description": "The conformance run this release passed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "version"],
+      "properties": {
+        "harness": {
+          "description": "The conformance harness crate.",
+          "const": "d1fw-ee-harness"
+        },
+        "version": {
+          "description": "The harness release the run used; inside `sdk.d1_ee_sdk`.",
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "run_url": {
+          "description": "Optional: where the run that executed `conformance::lifecycle` against the released commit is recorded: an https URL of a CI run, an absolute path of a local run log, or a hex digest (the commit the run was made on, or the SHA-256 of its log). Nothing in a manifest needs a network to be read.",
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^(https://[^\\s]+|/[^\\s]+|[0-9a-f]{7,64})$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "name": {
+      "description": "A descriptor name (model, driver, guard envelope id): at most 64 bytes, no whitespace or control character.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/+-]*$"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "driver", "links", "joints", "postures"],
+      "properties": {
+        "model": {
+          "description": "The descriptor's `model`.",
+          "$ref": "#/$defs/name"
+        },
+        "driver": {
+          "description": "The descriptor's `driver` for this model.",
+          "$ref": "#/$defs/name"
+        },
+        "links": {
+          "description": "How the device can be reached: the arm's flange channel (relayed by the daemon), CAN or CAN FD on an interface of the robot's computer, a USB serial adapter, or Ethernet.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["flange", "can", "canfd", "usb-serial", "ethernet"] }
+        },
+        "joints": {
+          "description": "The number of joints the descriptor declares for this model.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "postures": {
+          "description": "Named joint postures, each one value per joint in the descriptor's joint order: a fraction of that joint's range, 0 its `min` and 1 its `max`. A model with joints names at least `open` and `closed`.",
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 32,
+            "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      },
+      "if": {
+        "properties": { "joints": { "minimum": 1 } }
+      },
+      "then": {
+        "properties": { "postures": { "required": ["open", "closed"] } }
+      }
+    }
+  }
+}

@@ -48,3 +48,8 @@ jobs:
 
       - name: test
         run: cargo test --workspace --all-features --locked
+
+      # The provider template against this checkout: fmt, clippy, its
+      # conformance run, and its manifest against the accepted descriptor.
+      - name: template
+        run: tools/check-template.sh

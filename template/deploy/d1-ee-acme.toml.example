@@ -1,0 +1,11 @@
+# Configuration of the ACME G1 provider for one arm side:
+# /etc/d1-ee-acme/<side>.toml ("a" is the physical LEFT arm, "b" the RIGHT),
+# read when the provider starts. Unknown keys are refused. A missing file is
+# every built-in value below. The manifest's `config_schema` describes this
+# file; a fit's calibration, when the manifest requires one, is appended.
+
+# The device's bus address (1 to 247).
+device_id = 1
+
+# The speed of every stroke, percent of the device's fastest (5 to 100).
+speed_percent = 50

@@ -1,0 +1,40 @@
+# A provider repository started from the d1-ee-sdk template. Rename
+# `acme` / `d1-ee-acme` / `acme/g1` throughout (README.md, "Start").
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+# The release: the tag v<version>, the Debian package's version and the
+# manifest's `version` are this value.
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/acme-robotics/d1-ee-acme"
+
+[workspace.dependencies]
+# The end-effector SDK at a release tag. The iceoryx2 pin comes with it and
+# must equal d1-firmwared's (=0.9.3).
+d1fw-ee-provider = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.2.0" }
+d1fw-ee-harness = { git = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk", tag = "v0.2.0" }
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive", "env"] }
+toml = "0.9"
+tempfile = "3"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+debug = "line-tables-only"
