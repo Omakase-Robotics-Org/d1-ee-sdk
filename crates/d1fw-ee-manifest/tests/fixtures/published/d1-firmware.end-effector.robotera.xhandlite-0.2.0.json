@@ -1,9 +1,9 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "d1-firmware.end-effector.robotera.xhand-lite",
-  "version": "0.1.0",
+  "id": "d1-firmware.end-effector.robotera.xhandlite",
+  "version": "0.2.0",
   "package": {
-    "name": "d1-ee-xhand",
+    "name": "d1-ee-robotera-xhandlite",
     "arch": "arm64",
     "plane": "apt"
   },
@@ -12,14 +12,14 @@
     "d1_ee_sdk": ">=0.2.0, <0.3.0"
   },
   "launch": {
-    "command": "/opt/d1-ee-xhand/bin/d1-ee-xhand-provider --side {side}",
-    "config_dir": "/etc/d1-ee-xhand",
+    "command": "/opt/d1-ee-robotera-xhandlite/bin/d1-ee-robotera-xhandlite-provider --side {side}",
+    "config_dir": "/etc/d1-ee-robotera-xhandlite",
     "config_file": "{side}.toml"
   },
   "config_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "d1-ee-xhand side configuration",
-    "description": "/etc/d1-ee-xhand/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (gains.tor_max_ma at most gains.max_tor_max_ma) are the provider's own start-up check.",
+    "title": "d1-ee-robotera-xhandlite side configuration",
+    "description": "/etc/d1-ee-robotera-xhandlite/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (gains.tor_max_ma at most gains.max_tor_max_ma) are the provider's own start-up check.",
     "type": "object",
     "additionalProperties": false,
     "properties": {
@@ -192,6 +192,6 @@
   "conformance": {
     "harness": "d1fw-ee-harness",
     "version": "0.2.0",
-    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-xhand/actions/runs/39085761323"
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-robotera-xhandlite/actions/runs/39177087431"
   }
 }

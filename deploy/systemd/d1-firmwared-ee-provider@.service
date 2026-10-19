@@ -21,9 +21,9 @@
 # package installs its program as /opt/<package>/bin/<program>, and for a
 # model a package serves `d1-firmwared config ee-providers` writes the line:
 #
-#   EE_PROVIDER_COMMAND=/opt/d1-ee-damiao/bin/d1-ee-damiao-provider --side a
-#   EE_PROVIDER_COMMAND=/opt/d1-ee-linkerbot/bin/d1-ee-linkerbot-provider --side a
-#   EE_PROVIDER_COMMAND=/opt/d1-ee-leadshine/bin/d1-ee-leadshine-provider --side b
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-damiao-custom/bin/d1-ee-damiao-custom-provider --side a
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-linkerbot-o30/bin/d1-ee-linkerbot-o30-provider --side a
+#   EE_PROVIDER_COMMAND=/opt/d1-ee-leadshine-dh116/bin/d1-ee-leadshine-dh116-provider --side b
 #
 # While the command's program is not installed (or not executable) the unit
 # is skipped, not failed (ExecCondition=): it can be enabled before its

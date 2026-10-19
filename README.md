@@ -121,9 +121,9 @@ with the robot; their source is not public:
 
 | Package | Model |
 | --- | --- |
-| `d1-ee-damiao` | `damiao-v1.1`, `damiao-v1.2` (the D1's stock parallel gripper) |
-| `d1-ee-linkerbot` | `linkerbot/o30` (LinkerHand O30) |
-| `d1-ee-leadshine` | `leadshine/dh116s` (Leadshine DH116S) |
+| `d1-ee-damiao-custom` | `damiao-v1.1`, `damiao-v1.2` (the D1's stock parallel gripper) |
+| `d1-ee-linkerbot-o30` | `linkerbot/o30` (LinkerHand O30) |
+| `d1-ee-leadshine-dh116` | `leadshine/dh116s` (Leadshine DH116S) |
 
 ## The provider manifest
 

@@ -106,11 +106,13 @@ An **id** is a dotted namespace: two to six segments of lowercase
 
 The convention is `d1-firmware.end-effector.<vendor>.<model>`: the slot the
 provider fills (an end effector of d1-firmware), the maker, and the model
-or model family the release drives, e.g. `d1-firmware.end-effector.dh.ag`
+or model family the release drives, e.g. `d1-firmware.end-effector.dh.ag100100`
 for a DH-Robotics AG gripper. One id covers every model its manifest's
-`models[]` lists: `d1-firmware.end-effector.damiao.motor` drives both
-`damiao-v1.1` and `damiao-v1.2`. The id names the provider, not its
-package: the Debian package keeps its own name (`d1-ee-<vendor>`).
+`models[]` lists: `d1-firmware.end-effector.damiao.custom` drives both
+`damiao-v1.1` and `damiao-v1.2`. Neither the vendor nor the model segment
+contains a hyphen. The provider's Debian package, repository and install
+prefix are `d1-ee-<vendor>-<model>` with the same two names
+(`d1-ee-dh-ag100100` for `d1-firmware.end-effector.dh.ag100100`).
 
 A **version range** (`sdk.d1_ee_sdk`, and the fit's `provider.version`) is a
 list of comparators joined by commas, all of which a version must satisfy.
@@ -190,7 +192,7 @@ install, and apply the fit naming the new `{id, version}`.
 
 ## Providers the artifacts hub distributes
 
-Omakase Robotics distributes its own providers (d1-ee-damiao, d1-ee-ag, …)
+Omakase Robotics distributes its own providers (d1-ee-damiao-custom, d1-ee-dh-ag100100, …)
 through the artifacts hub (omakaseos-artifacts). That route is for those
 providers only; nothing in sections 1 to 5 depends on it, and the manifest
 is the same document either way.
@@ -225,16 +227,21 @@ The providers the hub distributes, by id:
 
 | id | package | first published version |
 | --- | --- | --- |
-| `d1-firmware.end-effector.dh.ag` | d1-ee-ag (DH-Robotics AG-100-100) | 0.1.1 |
-| `d1-firmware.end-effector.damiao.motor` | d1-ee-damiao (damiao-v1.1, damiao-v1.2) | 0.1.2 |
-| `d1-firmware.end-effector.linkerbot.o30` | d1-ee-linkerbot (Linkerbot O30) | 0.1.1 |
-| `d1-firmware.end-effector.leadshine.dh116` | d1-ee-leadshine (Leadshine DH116S) | 0.1.1 |
-| `d1-firmware.end-effector.robotera.xhand-lite` | d1-ee-xhand (ROBOTERA XHAND1 Lite) | 0.1.0 |
+| `d1-firmware.end-effector.dh.ag100100` | d1-ee-dh-ag100100 (DH-Robotics AG-100-100) | 0.2.0 |
+| `d1-firmware.end-effector.damiao.custom` | d1-ee-damiao-custom (damiao-v1.1, damiao-v1.2) | 0.2.0 |
+| `d1-firmware.end-effector.linkerbot.o30` | d1-ee-linkerbot-o30 (Linkerbot O30) | 0.2.0 |
+| `d1-firmware.end-effector.leadshine.dh116` | d1-ee-leadshine-dh116 (Leadshine DH116S) | 0.2.0 |
+| `d1-firmware.end-effector.robotera.xhandlite` | d1-ee-robotera-xhandlite (ROBOTERA XHAND1 Lite) | 0.2.0 |
 
-**Retired ids.** The same releases were first published under the ids
-`omakase.ag`, `omakase.damiao`, `omakase.linkerbot`, `omakase.leadshine`
-and `omakase.xhand`. Registry entries are permanent, so those entries stay
-on the hub, byte for byte, but they are retired: no new release is
-published under them, and a fit names the `d1-firmware.end-effector.*` id
-instead (the fit of d1-3 does from revision 2). A reader still accepts the
-retired ids, which match the id pattern.
+**Retired ids and package names.** Releases before 0.2.0 were published
+under ids and packages that no longer name a provider: the ids `omakase.ag`,
+`omakase.damiao`, `omakase.linkerbot`, `omakase.leadshine`, `omakase.xhand`,
+`d1-firmware.end-effector.dh.ag`, `d1-firmware.end-effector.damiao.motor`
+and `d1-firmware.end-effector.robotera.xhand-lite`, and the packages
+`d1-ee-ag`, `d1-ee-damiao`, `d1-ee-linkerbot`, `d1-ee-leadshine` and
+`d1-ee-xhand`. Their registry entries are withdrawn and purged from the
+hubs, and the leadshine and linkerbot entries before 0.2.0 likewise; a fit
+names an id of the table above. Each renamed package declares `Replaces`,
+`Breaks (<< 0.2.0)` and `Provides` on its previous name, so installing it
+removes the old one. A reader still accepts a retired id, which matches the
+id pattern, but the hub no longer serves one.

@@ -1,9 +1,9 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "d1-firmware.end-effector.damiao.motor",
-  "version": "0.1.2",
+  "id": "d1-firmware.end-effector.damiao.custom",
+  "version": "0.2.0",
   "package": {
-    "name": "d1-ee-damiao",
+    "name": "d1-ee-damiao-custom",
     "arch": "arm64",
     "plane": "apt"
   },
@@ -12,13 +12,13 @@
     "d1_ee_sdk": ">=0.1.0, <0.2.0"
   },
   "launch": {
-    "command": "/opt/d1-ee-damiao/bin/d1-ee-damiao-provider --side {side}",
+    "command": "/opt/d1-ee-damiao-custom/bin/d1-ee-damiao-custom-provider --side {side}",
     "config_dir": "/etc/d1-firmwared/ee-provider",
     "config_file": "{side}.toml"
   },
   "config_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "d1-ee-damiao side configuration",
+    "title": "d1-ee-damiao-custom side configuration",
     "description": "/etc/d1-firmwared/ee-provider/<side>.toml. Every key is optional; a missing file is a damiao-v1.1 with every built-in value. Rules across keys (open_rad below the model's open stop, 1.55 for damiao-v1.1 and 1.41 for damiao-v1.2; a preset naming torque_nm or i_des, not both) are the provider's own start-up check.",
     "type": "object",
     "additionalProperties": false,
@@ -147,6 +147,6 @@
   "conformance": {
     "harness": "d1fw-ee-harness",
     "version": "0.1.0",
-    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-damiao/actions/runs/39026928742"
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-damiao-custom/actions/runs/39177173041"
   }
 }

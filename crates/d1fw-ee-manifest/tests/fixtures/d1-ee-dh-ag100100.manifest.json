@@ -1,9 +1,9 @@
 {
   "schema": "omakase-ee-provider/1",
-  "id": "d1-firmware.end-effector.dh.ag",
-  "version": "0.1.1",
+  "id": "d1-firmware.end-effector.dh.ag100100",
+  "version": "0.2.0",
   "package": {
-    "name": "d1-ee-ag",
+    "name": "d1-ee-dh-ag100100",
     "arch": "arm64",
     "plane": "apt"
   },
@@ -12,14 +12,14 @@
     "d1_ee_sdk": ">=0.1.0, <0.2.0"
   },
   "launch": {
-    "command": "/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}",
-    "config_dir": "/etc/d1-ee-ag",
+    "command": "/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side {side}",
+    "config_dir": "/etc/d1-ee-dh-ag100100",
     "config_file": "{side}.toml"
   },
   "config_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "d1-ee-ag side configuration",
-    "description": "/etc/d1-ee-ag/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (bus-kind-specific keys, open_permille at least 100 above closed_permille, grip forces not decreasing from soft to strong) are the provider's own start-up check.",
+    "title": "d1-ee-dh-ag100100 side configuration",
+    "description": "/etc/d1-ee-dh-ag100100/<side>.toml. Every key is optional; a missing file is every built-in value. Rules across keys (bus-kind-specific keys, open_permille at least 100 above closed_permille, grip forces not decreasing from soft to strong) are the provider's own start-up check.",
     "type": "object",
     "additionalProperties": false,
     "properties": {
@@ -215,6 +215,6 @@
   "conformance": {
     "harness": "d1fw-ee-harness",
     "version": "0.1.0",
-    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-ag/actions/runs/39035875702"
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-dh-ag100100/actions/runs/39177081313"
   }
 }

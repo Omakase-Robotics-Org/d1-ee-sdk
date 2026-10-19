@@ -1,9 +1,9 @@
 {
   "schema": "omakase-ee-provider/1",
   "id": "d1-firmware.end-effector.leadshine.dh116",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "package": {
-    "name": "d1-ee-leadshine",
+    "name": "d1-ee-leadshine-dh116",
     "arch": "arm64",
     "plane": "apt"
   },
@@ -12,7 +12,7 @@
     "d1_ee_sdk": ">=0.1.0, <0.2.0"
   },
   "launch": {
-    "command": "/opt/d1-ee-leadshine/bin/d1-ee-leadshine-provider --side {side}"
+    "command": "/opt/d1-ee-leadshine-dh116/bin/d1-ee-leadshine-dh116-provider --side {side}"
   },
   "models": [
     {
@@ -49,6 +49,6 @@
   "conformance": {
     "harness": "d1fw-ee-harness",
     "version": "0.1.0",
-    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-leadshine/actions/runs/38907737683"
+    "run_url": "https://github.com/Omakase-Robotics-Org/d1-ee-leadshine-dh116/actions/runs/39177092357"
   }
 }
