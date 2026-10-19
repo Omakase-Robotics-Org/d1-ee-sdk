@@ -66,6 +66,12 @@ pub struct TestRecord {
     pub fail_next_set: Mutex<Option<ProviderError>>,
     /// How long a `set` with `wait` takes, milliseconds.
     pub stroke_ms: AtomicU64,
+    /// How long a `joints` call takes before it completes, milliseconds.
+    pub joints_ms: AtomicU64,
+    /// The order the provider's calls took effect in: `"joints"` when a
+    /// `joints` call completed, `"set"`, `"hold"`, `"home"` or `"stop"` when
+    /// one began.
+    pub calls: Mutex<Vec<&'static str>>,
     /// The jaw position, radians.
     position: Mutex<f64>,
     /// The lifetime the provider declares for its holds (§4 rules 4 and
@@ -276,6 +282,14 @@ impl Provider for TestProvider {
         if let Some(error) = self.record.fail_next_set.lock().expect("lock").take() {
             return Err(error);
         }
+        let verb = if command.is_hold() {
+            "hold"
+        } else if command.is_home() {
+            "home"
+        } else {
+            "set"
+        };
+        self.record.calls.lock().expect("lock").push(verb);
         if command.is_hold() {
             // Held where it is: nothing moves. A new hold restarts the
             // lifetime.
@@ -302,8 +316,13 @@ impl Provider for TestProvider {
     }
 
     async fn joints(&self, targets: Vec<f64>, timestamp_us: u64) -> Result<(), ProviderError> {
+        let delay = self.record.joints_ms.load(Ordering::Relaxed);
+        if delay > 0 {
+            tokio::time::sleep(Duration::from_millis(delay)).await;
+        }
         let position = targets.first().copied().unwrap_or(OPEN_RAD);
         self.record.begin(HoldPhase::None);
+        self.record.calls.lock().expect("lock").push("joints");
         self.record
             .joints
             .lock()
@@ -336,6 +355,7 @@ impl Provider for TestProvider {
 
     async fn stop(&self) -> Result<(), ProviderError> {
         self.record.stops.fetch_add(1, Ordering::Relaxed);
+        self.record.calls.lock().expect("lock").push("stop");
         self.record.begin_stop();
         Ok(())
     }

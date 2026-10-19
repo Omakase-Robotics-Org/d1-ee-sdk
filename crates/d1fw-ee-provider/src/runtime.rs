@@ -39,6 +39,11 @@ use tracing::{debug, info, warn};
 
 use crate::{Provider, check_joints, check_set};
 
+/// The longest a `set` waits for the joint targets accepted before it. A
+/// `set` carries a 250 ms start deadline; a provider that takes longer than
+/// this for a target does not hold a `set` up with it.
+const JOINTS_BEFORE_SET_WAIT: Duration = Duration::from_millis(100);
+
 /// How long the port thread waits for work before it polls its ports again.
 /// The latency a command sees before it is handed to the provider.
 const TICK: Duration = Duration::from_millis(2);
@@ -220,7 +225,8 @@ pub async fn serve(
     let daemon_present = Arc::new(AtomicBool::new(false));
     let (outbound, outbound_receiver) = mpsc::channel();
     let (ready, ready_receiver) = tokio::sync::oneshot::channel();
-    let (joints_sender, joints_receiver) = watch::channel::<Option<JointTargets>>(None);
+    let (joints_sender, joints_receiver) = watch::channel::<Option<(u64, JointTargets)>>(None);
+    let (delivered_sender, delivered_receiver) = watch::channel(0_u64);
     let (redeclare, redeclarations) = mpsc::channel();
     let settled = Arc::new(AtomicU64::new(0));
 
@@ -235,6 +241,8 @@ pub async fn serve(
             daemon_present: Arc::clone(&daemon_present),
             outbound: outbound.clone(),
             joints: joints_sender,
+            joints_sent: Arc::new(AtomicU64::new(0)),
+            joints_delivered: delivered_receiver,
             settled: Arc::clone(&settled),
         };
         std::thread::Builder::new()
@@ -270,6 +278,7 @@ pub async fn serve(
     handle.tasks.push(tokio::spawn(drive_joints(
         Arc::clone(&provider),
         joints_receiver,
+        delivered_sender,
     )));
     if let Some(ticks) = provider.ticks() {
         handle
@@ -325,18 +334,22 @@ async fn read_states(
     }
 }
 
-/// Hand the newest joint targets to the provider, one call at a time.
+/// Hand the newest joint targets to the provider, one call at a time, and
+/// publish the sequence number of the newest handed over so a `set` that
+/// arrived after them waits for them ([`dispatch_command`]).
 async fn drive_joints(
     provider: Arc<dyn Provider>,
-    mut targets: watch::Receiver<Option<JointTargets>>,
+    mut targets: watch::Receiver<Option<(u64, JointTargets)>>,
+    delivered: watch::Sender<u64>,
 ) {
     while targets.changed().await.is_ok() {
-        let Some(command) = targets.borrow_and_update().clone() else {
+        let Some((sequence, command)) = targets.borrow_and_update().clone() else {
             continue;
         };
         if let Err(error) = provider.joints(command.targets, command.timestamp_us).await {
             debug!(%error, "joint targets refused by the provider");
         }
+        delivered.send_replace(sequence);
     }
 }
 
@@ -358,7 +371,12 @@ struct PortContext {
     stop: Arc<AtomicBool>,
     daemon_present: Arc<AtomicBool>,
     outbound: mpsc::Sender<Outbound>,
-    joints: watch::Sender<Option<JointTargets>>,
+    joints: watch::Sender<Option<(u64, JointTargets)>>,
+    /// How many joint targets were accepted for delivery; each carries its
+    /// number in `joints`.
+    joints_sent: Arc<AtomicU64>,
+    /// The number of the newest joint targets handed to the provider.
+    joints_delivered: watch::Receiver<u64>,
     /// Counts the commands that completed; see [`read_states`].
     settled: Arc<AtomicU64>,
 }
@@ -751,7 +769,8 @@ fn receive_joints(ports: &Ports, context: &PortContext, generation: u64) {
     } else if let Err(error) = check_joints(&context.descriptor, &targets.targets) {
         warn!(%error, "joint targets refused");
     } else {
-        context.joints.send_replace(Some(targets));
+        let sequence = context.joints_sent.fetch_add(1, Ordering::AcqRel) + 1;
+        context.joints.send_replace(Some((sequence, targets)));
     }
 }
 
@@ -844,9 +863,24 @@ fn dispatch_command(
     let provider = Arc::clone(&context.provider);
     let outbound = context.outbound.clone();
     let settled = Arc::clone(&context.settled);
+    // Joint targets and `set` run on separate tasks, so a `set` could reach
+    // the provider before the targets that preceded it: a hold right after a
+    // target would then keep the previous set-point. A `set` therefore waits
+    // for every target accepted before it was dispatched, which includes
+    // those received in the same wake-up (the ports are drained joints
+    // first). A stop never waits: it always executes.
+    let needed = context.joints_sent.load(Ordering::Acquire);
+    let mut delivered = context.joints_delivered.clone();
     context.runtime.spawn(async move {
         let outcome = match set {
-            Some(set) => provider.set(set).await,
+            Some(set) => {
+                let _ = tokio::time::timeout(
+                    JOINTS_BEFORE_SET_WAIT,
+                    delivered.wait_for(|done| *done >= needed),
+                )
+                .await;
+                provider.set(set).await
+            }
             None => provider.stop().await,
         };
         settled.fetch_add(1, Ordering::AcqRel);

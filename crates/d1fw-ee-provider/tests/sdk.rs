@@ -400,3 +400,73 @@ async fn a_hold_runs_only_where_it_is_declared_and_well_formed() {
     assert_eq!(record.holds.load(Ordering::Relaxed), 1);
     assert!(record.sets.lock().unwrap().is_empty());
 }
+
+/// A `set` that arrives right after joint targets takes effect after them,
+/// even when the targets take longer to hand over: a hold sent right after
+/// a target must keep that target, not the one before it. A stop does not
+/// wait.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_set_right_after_joint_targets_runs_after_them() {
+    let root = ShmRoot::scratch();
+    let mut descriptor = TestProvider::gripper_descriptor();
+    descriptor.capabilities.set_extra = vec!["hold".to_owned()];
+    let provider = TestProvider::with_descriptor(descriptor);
+    let record = provider.record();
+    record.joints_ms.store(60, Ordering::Relaxed);
+    let _serving = serve(Arc::new(provider), ServeOptions::new(root.clone(), names()))
+        .await
+        .unwrap();
+    let daemon = RawDaemon::open(&root);
+    let target = daemon.target().await;
+    for round in 0..5_u64 {
+        record.calls.lock().unwrap().clear();
+        let mut header = model::header(99, round + 2);
+        header.mono_ns = clock::monotonic_ns();
+        let message = JointTargets {
+            target_instance_id: target.0,
+            descriptor_generation: target.1,
+            issued_mono_ns: 0,
+            timestamp_us: round + 1,
+            targets: vec![0.3],
+        }
+        .to_wire(header)
+        .unwrap();
+        daemon.joints.send_copy(message).unwrap();
+        assert_eq!(
+            daemon
+                .command(&set(target, soon(), SetCommand::hold()))
+                .await,
+            Ok(())
+        );
+        assert_eq!(
+            *record.calls.lock().unwrap(),
+            vec!["joints", "hold"],
+            "round {round}: the hold took effect before the target before it"
+        );
+    }
+    record.calls.lock().unwrap().clear();
+    let mut header = model::header(99, 99);
+    header.mono_ns = clock::monotonic_ns();
+    let message = JointTargets {
+        target_instance_id: target.0,
+        descriptor_generation: target.1,
+        issued_mono_ns: 0,
+        timestamp_us: 99,
+        targets: vec![0.2],
+    }
+    .to_wire(header)
+    .unwrap();
+    daemon.joints.send_copy(message).unwrap();
+    let stop = CommandEnvelope {
+        target_instance_id: target.0,
+        descriptor_generation: target.1,
+        start_by_mono_ns: soon(),
+        command: Command::Stop,
+    };
+    assert_eq!(daemon.command(&stop).await, Ok(()));
+    assert_eq!(
+        record.calls.lock().unwrap().first(),
+        Some(&"stop"),
+        "a stop never waits for joint targets"
+    );
+}

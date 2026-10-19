@@ -46,6 +46,10 @@ versions follow `0.x` SemVer (README, "Versions").
   implements it (`TestRecord::lifetime`, `hold_events`, `hold_phase`) and
   `conformance::lifecycle` checks the declared report after a hold.
 
+- The provider runtime hands a `set` to the provider only after the joint
+  targets accepted before it (a `stop` never waits), so a hold sent right
+  after a target keeps that target; a `set` waits at most 100 ms for them.
+
 ### Changed
 
 - `State.tracking` is defined (spec §3.4): a streamed target taken and not
