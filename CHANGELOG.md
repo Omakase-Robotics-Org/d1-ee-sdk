@@ -38,9 +38,11 @@ versions follow `0.x` SemVer (README, "Versions").
   effort after a stop before it relaxes; `hold_expiring` and `stop_relaxing`
   notices precede each end and the events are recorded in the `hold` object
   of the state's `detail` and in the provider's log. A settle definition
-  (2 % of range, 5 % of range per second, 100 ms) says when `tracking`
-  clears. `d1fw_ee_shm_contract::hold` (`HoldLifetime`, `HoldReport`,
-  `HoldEvent`, `Joint::settled`, the caps and leads); the test provider
+  (2 % of range and 5 % of range per second for 100 ms, or every joint
+  within 0.5 % of its range for 250 ms, whichever comes first) says when
+  `tracking` clears. `d1fw_ee_shm_contract::hold` (`HoldLifetime`, `HoldReport`,
+  `HoldEvent`, `Joint::settled`, `Joint::stationary`, `all_stationary`, the
+  caps and leads); the test provider
   implements it (`TestRecord::lifetime`, `hold_events`, `hold_phase`) and
   `conformance::lifecycle` checks the declared report after a hold.
 

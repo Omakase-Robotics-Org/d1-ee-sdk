@@ -54,8 +54,29 @@ pub const SETTLE_POSITION_FRACTION: f64 = 0.02;
 pub const SETTLE_SPEED_FRACTION_PER_S: f64 = 0.05;
 
 /// An end effector is settled when every joint has been settled for this
-/// long, milliseconds. Only then does a provider clear `tracking`.
+/// long, milliseconds, or when [`STATIONARY_DWELL_MS`] of stillness applies,
+/// whichever comes first. Only then does a provider clear `tracking`.
 pub const SETTLE_DWELL_MS: u32 = 100;
+
+/// A joint is stationary when its measured position stayed within this
+/// fraction of its range, highest minus lowest sample, over
+/// [`STATIONARY_DWELL_MS`].
+///
+/// Why a position window and not a velocity: a finger stopped by an object
+/// reports a velocity that is encoder noise, and a threshold on it would
+/// depend on each sensor's resolution, while the spread of positions over a
+/// window does not. 0.5 % of the range is about twenty times the step of a
+/// 12-bit encoder (1/4096 of its range), so quantisation noise does not
+/// break it, and it is the distance a deliberate motion of 2 % of the range
+/// per second covers in the 250 ms window, so a joint advancing faster than
+/// that rate is never taken as stopped.
+pub const STATIONARY_DELTA_FRACTION: f64 = 0.005;
+
+/// How long every joint must be stationary before the end effector counts as
+/// settled although no joint reached its set-point, milliseconds: long
+/// enough to tell a finger blocked by an object from the turning point of a
+/// slow motion, short enough that the next session starts promptly.
+pub const STATIONARY_DWELL_MS: u32 = 250;
 
 /// The durations a provider declares for its holds.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -210,6 +231,31 @@ impl Joint {
         (measured - set_point).abs() <= SETTLE_POSITION_FRACTION * range
             && speed.is_none_or(|v| v.abs() <= SETTLE_SPEED_FRACTION_PER_S * range)
     }
+
+    /// Whether this joint is stationary: the highest and lowest measured
+    /// positions seen over [`STATIONARY_DWELL_MS`] are within
+    /// [`STATIONARY_DELTA_FRACTION`] of its range of each other. The caller
+    /// supplies the window; a window shorter than the dwell is not enough.
+    #[must_use]
+    pub fn stationary(&self, lowest: f64, highest: f64) -> bool {
+        highest - lowest <= STATIONARY_DELTA_FRACTION * (self.max - self.min)
+    }
+}
+
+/// Whether every joint is stationary over `window`, the measured positions
+/// of the last [`STATIONARY_DWELL_MS`], oldest first, one entry per joint in
+/// each sample. An empty window, or a sample with another joint count, is
+/// not stationary.
+#[must_use]
+pub fn all_stationary(joints: &[Joint], window: &[Vec<f64>]) -> bool {
+    !window.is_empty()
+        && window.iter().all(|sample| sample.len() == joints.len())
+        && joints.iter().enumerate().all(|(index, joint)| {
+            let positions = window.iter().map(|sample| sample[index]);
+            let lowest = positions.clone().fold(f64::INFINITY, f64::min);
+            let highest = positions.fold(f64::NEG_INFINITY, f64::max);
+            joint.stationary(lowest, highest)
+        })
 }
 
 #[cfg(test)]
@@ -297,6 +343,30 @@ mod tests {
         }
         assert_eq!(report.events.len(), MAX_HOLD_EVENTS);
         assert_eq!(report.events[0].mono_ns, 1);
+    }
+
+    #[test]
+    fn a_finger_stopped_by_an_object_is_stationary_not_settled() {
+        let joint = Joint {
+            name: "j".to_owned(),
+            unit: JointUnit::Rad,
+            min: 0.0,
+            max: 2.0,
+        };
+        // Blocked at 0.6 rad although the set-point is 1.0: never settled
+        // by position, but its positions barely move (0.5 % of 2.0 is 0.01).
+        assert!(!joint.settled(0.6, 1.0, Some(0.0)));
+        let window: Vec<Vec<f64>> = [0.600, 0.604, 0.601, 0.606, 0.603]
+            .iter()
+            .map(|p| vec![*p])
+            .collect();
+        assert!(all_stationary(std::slice::from_ref(&joint), &window));
+        // Still advancing at 2 % of the range per second over the window:
+        // 0.012 rad in 250 ms is more than the 0.01 allowed.
+        let moving: Vec<Vec<f64>> = [0.600, 0.606, 0.612].iter().map(|p| vec![*p]).collect();
+        assert!(!all_stationary(std::slice::from_ref(&joint), &moving));
+        assert!(!all_stationary(std::slice::from_ref(&joint), &[]));
+        assert!(!all_stationary(&[joint.clone(), joint], &window));
     }
 
     #[test]
