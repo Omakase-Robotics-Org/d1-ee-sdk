@@ -4,11 +4,11 @@
 # d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and d1-provisioning
 # (tests/fixtures/ee-manifest-rules/): the SDK's validator and the on-robot reader are held
 # to the same verdicts.
-accept d1-firmware.end-effector.dh.ag
-accept d1-firmware.end-effector.damiao.motor
+accept d1-firmware.end-effector.dh.ag100100
+accept d1-firmware.end-effector.damiao.custom
 accept d1-firmware.end-effector.linkerbot.o30
 accept d1-firmware.end-effector.leadshine.dh116
-accept d1-firmware.end-effector.robotera.xhand-lite
+accept d1-firmware.end-effector.robotera.xhandlite
 accept d1-firmware.end-effector.acme.g1
 accept d1-firmware.end-effector.acme.g1.v2
 accept omakase.ag

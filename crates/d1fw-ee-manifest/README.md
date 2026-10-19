@@ -38,14 +38,14 @@ of an end-effector provider to the robot that runs it:
 
 The crate needs no network and does not link the shared-memory transport:
 it runs on a developer's machine, in a release job and on a robot alike.
-`tests/fixtures/d1-ee-ag.manifest.json` is the manifest of d1-ee-ag 0.1.1;
-`tests/fixtures/published/` holds the other documents the hub serves
-(d1-firmware.end-effector.damiao.motor 0.1.2,
-d1-firmware.end-effector.robotera.xhand-lite 0.1.0, the fit of d1-3
-revision 2), the descriptors they are held to, and the manifests of
-d1-firmware.end-effector.leadshine.dh116 0.1.1 and
-d1-firmware.end-effector.linkerbot.o30 0.1.1, which read no configuration
-file;
+`tests/fixtures/d1-ee-dh-ag100100.manifest.json` is the manifest of
+d1-ee-dh-ag100100 0.2.0 and `tests/fixtures/d1-3.robot-fit.json` the fit of
+d1-3 in the hub's JSON form; `tests/fixtures/published/` holds the other
+documents the hub serves (d1-firmware.end-effector.damiao.custom 0.2.0,
+d1-firmware.end-effector.robotera.xhandlite 0.2.0), the descriptors they are
+held to, and the manifests of d1-firmware.end-effector.leadshine.dh116 0.2.0
+and d1-firmware.end-effector.linkerbot.o30 0.2.0, which read no
+configuration file;
 `tests/fixtures/rules/` the accept and refuse cases d1-provisioning's tests
 share.
 The developer path is `docs/third-party-providers.md`.

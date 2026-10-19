@@ -26,12 +26,12 @@ fn run(args: &[&str]) -> (i32, String, String) {
 
 #[test]
 fn a_valid_manifest_and_its_descriptor_pass() {
-    let manifest = fixture("d1-ee-ag.manifest.json");
-    let descriptor = fixture("d1-ee-ag.descriptor.json");
+    let manifest = fixture("d1-ee-dh-ag100100.manifest.json");
+    let descriptor = fixture("d1-ee-dh-ag100100.descriptor.json");
     let (code, out, err) = run(&["check", &manifest]);
     assert_eq!(code, 0, "{err}");
     assert!(
-        out.contains("valid d1-firmware.end-effector.dh.ag 0.1.1"),
+        out.contains("valid d1-firmware.end-effector.dh.ag100100 0.2.0"),
         "{out}"
     );
     let (code, out, err) = run(&["check", &manifest, "--descriptor", &descriptor]);
@@ -44,7 +44,8 @@ fn an_invalid_manifest_exits_1_naming_each_problem() {
     let dir = tempfile::tempdir().expect("a directory");
     let path = dir.path().join("manifest.json");
     let mut value: serde_json::Value =
-        serde_json::from_str(include_str!("fixtures/d1-ee-ag.manifest.json")).expect("JSON");
+        serde_json::from_str(include_str!("fixtures/d1-ee-dh-ag100100.manifest.json"))
+            .expect("JSON");
     value["models"][0]["postures"]["open"] = serde_json::json!([1.0, 1.0]);
     std::fs::write(&path, value.to_string()).expect("write");
     let (code, _, err) = run(&["check", &path.display().to_string()]);
@@ -63,7 +64,7 @@ fn a_disagreeing_descriptor_exits_1() {
     .expect("write");
     let (code, _, err) = run(&[
         "check",
-        &fixture("d1-ee-ag.manifest.json"),
+        &fixture("d1-ee-dh-ag100100.manifest.json"),
         "--descriptor",
         &path.display().to_string(),
     ]);
@@ -88,7 +89,7 @@ fn the_schema_command_prints_the_committed_schema() {
 fn a_provider_without_a_configuration_file_is_valid() {
     let (code, out, err) = run(&[
         "check",
-        &fixture("published/d1-firmware.end-effector.leadshine.dh116-0.1.1.json"),
+        &fixture("published/d1-firmware.end-effector.leadshine.dh116-0.2.0.json"),
     ]);
     assert_eq!(code, 0, "{err}");
     assert!(
@@ -101,13 +102,13 @@ fn a_provider_without_a_configuration_file_is_valid() {
 fn what_the_on_robot_reader_refuses_is_a_warning_with_exit_0() {
     let dir = tempfile::tempdir().expect("a directory");
     let path = dir.path().join("manifest.json");
-    let text = include_str!("fixtures/d1-ee-ag.manifest.json")
+    let text = include_str!("fixtures/d1-ee-dh-ag100100.manifest.json")
         .replace("side configuration", "side configur\\u0061tion");
     std::fs::write(&path, text).expect("write");
     let (code, out, err) = run(&["check", &path.display().to_string()]);
     assert_eq!(code, 0, "{err}");
     assert!(
-        out.contains("valid d1-firmware.end-effector.dh.ag 0.1.1"),
+        out.contains("valid d1-firmware.end-effector.dh.ag100100 0.2.0"),
         "{out}"
     );
     assert!(

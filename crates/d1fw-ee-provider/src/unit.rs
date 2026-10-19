@@ -51,8 +51,8 @@ mod tests {
             );
         }
         assert_eq!(
-            program_path("d1-ee-damiao", "d1-ee-damiao-provider"),
-            "/opt/d1-ee-damiao/bin/d1-ee-damiao-provider"
+            program_path("d1-ee-damiao-custom", "d1-ee-damiao-custom-provider"),
+            "/opt/d1-ee-damiao-custom/bin/d1-ee-damiao-custom-provider"
         );
     }
 }

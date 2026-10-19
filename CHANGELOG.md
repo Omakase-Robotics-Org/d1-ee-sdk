@@ -8,6 +8,17 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ### Changed
 
+- The providers the hub distributes are named `<vendor>.<model>` and
+  `d1-ee-<vendor>-<model>` with no hyphen inside either name, from 0.2.0:
+  `d1-firmware.end-effector.dh.ag100100` (`d1-ee-dh-ag100100`),
+  `….robotera.xhandlite` (`d1-ee-robotera-xhandlite`), `….leadshine.dh116`
+  (`d1-ee-leadshine-dh116`), `….linkerbot.o30` (`d1-ee-linkerbot-o30`) and
+  `….damiao.custom` (`d1-ee-damiao-custom`). The golden manifest and the
+  published fixtures are their 0.2.0 manifests; the shared rule files name
+  `d1-ee-dh-ag100100`; d1-3's fit fixture
+  (`tests/fixtures/d1-3.robot-fit.json`) names `….damiao.custom`
+  `>=0.2.0, <0.3.0`. The retired ids and package names are listed in
+  `docs/third-party-providers.md`.
 - A provider manifest's `id` is a dotted namespace of two to six lowercase
   segments (`ID_PATTERN`, at most `ID_MAX_LENGTH` = 64 characters), by
   convention `d1-firmware.end-effector.<vendor>.<model>`; it was exactly

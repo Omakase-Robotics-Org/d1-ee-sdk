@@ -1,5 +1,5 @@
 //! The manifest `omakase-ee-provider/1`: the committed schema, the golden
-//! manifest of d1-ee-ag 0.1.1, the documents the hub publishes, the
+//! manifest of d1-ee-dh-ag100100 0.2.0, the documents the hub publishes, d1-3's fit, the
 //! template's manifest, every rule refused on a mutation of the golden, the
 //! shared rule cases d1-provisioning's reader is held to as well
 //! (`fixtures/rules/`), and the check against a descriptor.
@@ -10,8 +10,8 @@ use d1fw_ee_manifest::{
 };
 use serde_json::{Value, json};
 
-const AG_MANIFEST: &str = include_str!("fixtures/d1-ee-ag.manifest.json");
-const AG_DESCRIPTOR: &str = include_str!("fixtures/d1-ee-ag.descriptor.json");
+const AG_MANIFEST: &str = include_str!("fixtures/d1-ee-dh-ag100100.manifest.json");
+const AG_DESCRIPTOR: &str = include_str!("fixtures/d1-ee-dh-ag100100.descriptor.json");
 const TEMPLATE_MANIFEST: &str = include_str!("../../../template/manifest.json");
 
 fn golden() -> Value {
@@ -51,20 +51,20 @@ fn the_committed_schema_is_a_draft_2020_12_schema() {
 }
 
 #[test]
-fn the_golden_manifest_of_d1_ee_ag_is_valid() {
+fn the_golden_manifest_of_d1_ee_dh_ag100100_is_valid() {
     let manifest = ProviderManifest::parse(AG_MANIFEST).expect("valid");
-    assert_eq!(manifest.id, "d1-firmware.end-effector.dh.ag");
+    assert_eq!(manifest.id, "d1-firmware.end-effector.dh.ag100100");
     assert_eq!(manifest.vendor(), "dh");
-    assert_eq!(manifest.version, "0.1.1");
-    assert_eq!(manifest.package.name, "d1-ee-ag");
+    assert_eq!(manifest.version, "0.2.0");
+    assert_eq!(manifest.package.name, "d1-ee-dh-ag100100");
     assert_eq!(
         manifest.command_for("a").as_deref(),
-        Ok("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side a"),
-        "the command d1-ee-ag's own .env example names"
+        Ok("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side a"),
+        "the command d1-ee-dh-ag100100's own .env example names"
     );
     assert_eq!(
         manifest.config_path_for("b"),
-        Ok(Some("/etc/d1-ee-ag/b.toml".to_owned()))
+        Ok(Some("/etc/d1-ee-dh-ag100100/b.toml".to_owned()))
     );
     assert!(manifest.command_for("c").is_err());
     let model = manifest.model("ag/ag-100-100").expect("the model");
@@ -98,7 +98,7 @@ fn the_golden_config_schema_takes_the_example_configuration_and_refuses_a_band()
             .expect("the golden reads a configuration file"),
     ))
     .expect("the config schema compiles");
-    // d1-ee-ag's deploy/d1-ee-ag.toml.example, read as JSON.
+    // d1-ee-dh-ag100100's deploy/d1-ee-dh-ag100100.toml.example, read as JSON.
     let example = json!({
         "model": "ag/ag-100-100",
         "revision": "standard-fingertip",
@@ -168,7 +168,7 @@ fn the_provider_id_cases_are_held() {
         m["id"] = json!(v);
     });
     assert_refused_at(
-        |m| m["id"] = json!("d1-firmware.end-effector.dh.ag\n"),
+        |m| m["id"] = json!("d1-firmware.end-effector.dh.ag100100\n"),
         "/id",
     );
 }
@@ -195,10 +195,10 @@ fn the_package_fields_are_typed() {
 
 fn registry_package(m: &mut Value) {
     m["package"] = json!({
-        "name": "d1-ee-ag",
+        "name": "d1-ee-dh-ag100100",
         "arch": "arm64",
         "plane": "registry",
-        "key": "apt-deb/d1-ee-ag/0.1.1/arm64/d1-ee-ag_0.1.1_arm64.deb",
+        "key": "apt-deb/d1-ee-dh-ag100100/0.2.0/arm64/d1-ee-dh-ag100100_0.2.0_arm64.deb",
         "sha256": "a".repeat(64),
         "sizeBytes": 1_234_567
     });
@@ -239,14 +239,16 @@ fn a_registry_package_carries_its_entrys_key_digest_and_size() {
     assert_refused_at(
         |m| {
             registry_package(m);
-            m["package"]["key"] = json!("/apt-deb/d1-ee-ag/0.1.1/arm64/d1-ee-ag_0.1.1_arm64.deb");
+            m["package"]["key"] =
+                json!("/apt-deb/d1-ee-dh-ag100100/0.2.0/arm64/d1-ee-dh-ag100100_0.2.0_arm64.deb");
         },
         "/package/key",
     );
     assert_refused_at(
         |m| {
             registry_package(m);
-            m["package"]["key"] = json!("apt-deb/d1-ee-ag/0.1.1/arm64/d1-ee-ag_0.1.1_arm64.tar.gz");
+            m["package"]["key"] =
+                json!("apt-deb/d1-ee-dh-ag100100/0.2.0/arm64/d1-ee-dh-ag100100_0.2.0_arm64.tar.gz");
         },
         "/package/key",
     );
@@ -254,7 +256,8 @@ fn a_registry_package_carries_its_entrys_key_digest_and_size() {
     assert_refused_at(
         |m| {
             registry_package(m);
-            m["package"]["key"] = json!("apt-deb/d1-ee-ag/0.1.0/arm64/d1-ee-ag_0.1.0_arm64.deb");
+            m["package"]["key"] =
+                json!("apt-deb/d1-ee-dh-ag100100/0.1.0/arm64/d1-ee-dh-ag100100_0.1.0_arm64.deb");
         },
         "/package/key",
     );
@@ -265,7 +268,7 @@ fn an_apt_package_carries_no_registry_fields() {
     for (field, value) in [
         (
             "key",
-            json!("apt-deb/d1-ee-ag/0.1.1/arm64/d1-ee-ag_0.1.1_arm64.deb"),
+            json!("apt-deb/d1-ee-dh-ag100100/0.2.0/arm64/d1-ee-dh-ag100100_0.2.0_arm64.deb"),
         ),
         ("sha256", json!("a".repeat(64))),
         ("sizeBytes", json!(1)),
@@ -301,34 +304,49 @@ fn the_sdk_range_holds_the_conformance_harness() {
 #[test]
 fn the_launch_command_is_a_side_template_under_the_packages_bin() {
     assert_refused_at(
-        |m| m["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {arm}"),
-        "/launch/command",
-    );
-    assert_refused_at(
-        |m| m["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side a"),
-        "/launch/command",
-    );
-    assert_refused_at(
-        |m| m["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side"),
+        |m| {
+            m["launch"]["command"] =
+                json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side {arm}")
+        },
         "/launch/command",
     );
     assert_refused_at(
         |m| {
             m["launch"]["command"] =
-                json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}; reboot")
+                json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side a")
         },
         "/launch/command",
     );
     assert_refused_at(
-        |m| m["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider  --side {side}"),
+        |m| {
+            m["launch"]["command"] =
+                json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side {side")
+        },
         "/launch/command",
     );
     assert_refused_at(
-        |m| m["launch"]["command"] = json!("/usr/bin/d1-ee-ag-provider --side {side}"),
+        |m| {
+            m["launch"]["command"] =
+                json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side {side}; reboot")
+        },
         "/launch/command",
     );
     assert_refused_at(
-        |m| m["launch"]["command"] = json!("/opt/other/bin/d1-ee-ag-provider --side {side}"),
+        |m| {
+            m["launch"]["command"] =
+                json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider  --side {side}")
+        },
+        "/launch/command",
+    );
+    assert_refused_at(
+        |m| m["launch"]["command"] = json!("/usr/bin/d1-ee-dh-ag100100-provider --side {side}"),
+        "/launch/command",
+    );
+    assert_refused_at(
+        |m| {
+            m["launch"]["command"] =
+                json!("/opt/other/bin/d1-ee-dh-ag100100-provider --side {side}")
+        },
         "/launch/command",
     );
     assert_refused_at(
@@ -340,7 +358,7 @@ fn the_launch_command_is_a_side_template_under_the_packages_bin() {
         "/launch/config_file",
     );
     assert_refused_at(
-        |m| m["launch"]["config_dir"] = json!("/etc/d1-ee-ag/"),
+        |m| m["launch"]["config_dir"] = json!("/etc/d1-ee-dh-ag100100/"),
         "/launch/config_dir",
     );
     assert_refused_at(
@@ -348,7 +366,7 @@ fn the_launch_command_is_a_side_template_under_the_packages_bin() {
         "/launch/config_dir",
     );
     assert_refused_at(
-        |m| m["launch"]["config_dir"] = json!("etc/d1-ee-ag"),
+        |m| m["launch"]["config_dir"] = json!("etc/d1-ee-dh-ag100100"),
         "/launch/config_dir",
     );
 }
@@ -514,14 +532,14 @@ fn a_descriptor_is_read_from_a_sides_answer_or_bare() {
 }
 
 const DAMIAO_MANIFEST: &str =
-    include_str!("fixtures/published/d1-firmware.end-effector.damiao.motor-0.1.2.json");
+    include_str!("fixtures/published/d1-firmware.end-effector.damiao.custom-0.2.0.json");
 const XHAND_MANIFEST: &str =
-    include_str!("fixtures/published/d1-firmware.end-effector.robotera.xhand-lite-0.1.0.json");
+    include_str!("fixtures/published/d1-firmware.end-effector.robotera.xhandlite-0.2.0.json");
 const LEADSHINE_MANIFEST: &str =
-    include_str!("fixtures/published/d1-firmware.end-effector.leadshine.dh116-0.1.1.json");
+    include_str!("fixtures/published/d1-firmware.end-effector.leadshine.dh116-0.2.0.json");
 const LINKERBOT_MANIFEST: &str =
-    include_str!("fixtures/published/d1-firmware.end-effector.linkerbot.o30-0.1.1.json");
-const D1_3_FIT: &str = include_str!("fixtures/published/d1-3.robot-fit-2.json");
+    include_str!("fixtures/published/d1-firmware.end-effector.linkerbot.o30-0.2.0.json");
+const D1_3_FIT: &str = include_str!("fixtures/d1-3.robot-fit.json");
 
 fn descriptor(text: &str) -> DescriptorView {
     DescriptorView::from_json(&serde_json::from_str(text).expect("JSON")).expect("a descriptor")
@@ -653,9 +671,11 @@ fn the_launch_command_cases_are_held() {
         m["launch"]["command"] = json!(v);
     });
     let mut manifest = golden();
-    manifest["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider\t--side {side}");
+    manifest["launch"]["command"] =
+        json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider\t--side {side}");
     assert!(ProviderManifest::from_value(&manifest).is_err(), "a tab");
-    manifest["launch"]["command"] = json!("/opt/d1-ee-ag/bin/d1-ee-ag-provider --side {side}\n");
+    manifest["launch"]["command"] =
+        json!("/opt/d1-ee-dh-ag100100/bin/d1-ee-dh-ag100100-provider --side {side}\n");
     assert!(
         ProviderManifest::from_value(&manifest).is_err(),
         "a newline"
@@ -735,7 +755,7 @@ fn the_patterns_the_reader_shares_are_the_schemas() {
 #[test]
 fn the_fit_of_d1_3_names_ranges_the_grammar_takes() {
     let fit: Value = serde_json::from_str(D1_3_FIT).expect("JSON");
-    assert_eq!(fit["revision"], json!(2));
+    assert_eq!(fit["revision"], json!(3));
     let damiao = ProviderManifest::parse(DAMIAO_MANIFEST).expect("valid");
     for side in ["a", "b"] {
         let provider = &fit["sides"][side]["provider"];
@@ -762,8 +782,8 @@ fn what_the_on_robot_reader_refuses_is_warned_about() {
             .collect()
     };
     let escaped = AG_MANIFEST.replace(
-        "d1-ee-ag side configuration",
-        "d1-ee-ag side configur\\u0061tion",
+        "d1-ee-dh-ag100100 side configuration",
+        "d1-ee-dh-ag100100 side configur\\u0061tion",
     );
     assert_eq!(
         warnings(&escaped),
@@ -781,8 +801,8 @@ fn what_the_on_robot_reader_refuses_is_warned_about() {
         "{found:#?}"
     );
     let twice = AG_MANIFEST.replace(
-        "\"title\": \"d1-ee-ag side configuration\",",
-        "\"title\": \"d1-ee-ag\", \"title\": \"d1-ee-ag side configuration\",",
+        "\"title\": \"d1-ee-dh-ag100100 side configuration\",",
+        "\"title\": \"d1-ee-dh-ag100100\", \"title\": \"d1-ee-dh-ag100100 side configuration\",",
     );
     let found = warnings(&twice);
     assert_eq!(found.len(), 1, "{found:#?}");

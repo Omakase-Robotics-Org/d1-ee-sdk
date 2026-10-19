@@ -3,7 +3,7 @@
 # identical in d1-ee-sdk (crates/d1fw-ee-manifest/tests/fixtures/rules/) and
 # d1-provisioning (tests/fixtures/ee-manifest-rules/): the SDK's validator
 # and the on-robot reader are held to the same verdicts.
-accept /etc/d1-ee-ag
+accept /etc/d1-ee-dh-ag100100
 accept /etc/d1-firmwared/ee-provider
 accept /etc/d1-firmwared/config.d-extra
 accept /etc/acme/g1+2/v1.0_x
@@ -17,13 +17,13 @@ refuse /etc/apt/sources.list.d
 refuse /etc/apt-ee
 refuse /etc
 refuse /etc/
-refuse /etc/d1-ee-ag/
-refuse /etc//d1-ee-ag
+refuse /etc/d1-ee-dh-ag100100/
+refuse /etc//d1-ee-dh-ag100100
 refuse /etc/../tmp
-refuse /etc/./d1-ee-ag
-refuse /etc/.d1-ee-ag
-refuse /etc/d1-ee-ag/{side}
-refuse /opt/d1-ee-ag/etc
-refuse /var/lib/d1-ee-ag
-refuse etc/d1-ee-ag
+refuse /etc/./d1-ee-dh-ag100100
+refuse /etc/.d1-ee-dh-ag100100
+refuse /etc/d1-ee-dh-ag100100/{side}
+refuse /opt/d1-ee-dh-ag100100/etc
+refuse /var/lib/d1-ee-dh-ag100100
+refuse etc/d1-ee-dh-ag100100
 refuse /etc/d1 ee ag
