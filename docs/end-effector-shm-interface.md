@@ -218,11 +218,12 @@ The contract's §5 is normative; in short:
   relay passes only a provider's reads and stops.
 - **The tool and the guard.** A declared tool is registered on the side's
   arm when the declaration is accepted (a client's `POST
-  /v1/arm/{side}/tool` outranks it); a declared `guard_model` (the model id) is resolved through the hand catalog
-  of the robot's description bundle; an id it does not resolve, or resolves
-  to an unverified envelope, is an unknown hand, checked with the default
-  envelope widened by a margin (or, on a robot that opted in, refused), and
-  the side's descriptor says so. A provider that disappears leaves its side
+  /v1/arm/{side}/tool` outranks it); a declared `guard_model` (the model
+  id) is resolved through the hand catalog of the robot's description
+  bundle; an id it does not resolve, or resolves to an unverified envelope,
+  is an unknown hand, checked with at least the default envelope, widened by
+  a margin (or, on a robot that opted in, refused), and the side's
+  descriptor says so. A provider that disappears leaves its side
   unknown, not back on the default.
 - **The detail.** A state's `detail` is published only under the
   `detail_schema` the declaration names; the id is the provider's own
