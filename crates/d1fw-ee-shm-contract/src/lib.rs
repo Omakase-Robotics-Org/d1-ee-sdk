@@ -90,6 +90,26 @@ pub const IDS_LEN: usize = 1024;
 /// The byte capacity of a fault-lane response body (JSON).
 pub const BODY_LEN: usize = 16384;
 
+/// The `set` parameter of the grip-force convention
+/// (`spec/end_effector.shm/1.md` §9): a provider that lists this key in
+/// its descriptor's `set_extra` takes `extra.force_percent`, a number in
+/// [`FORCE_PERCENT_MIN`]`..=`[`FORCE_PERCENT_MAX`] normalised over the end
+/// effector's own grip-force range, and publishes the [`GRIP_FORCE`] report.
+pub const FORCE_PERCENT: &str = "force_percent";
+
+/// The key of the applied-force report in a state's detail `data`, which a
+/// provider that declares [`FORCE_PERCENT`] puts in every state it
+/// publishes (`spec/end_effector.shm/1.md` §9).
+pub const GRIP_FORCE: &str = "grip_force";
+
+/// The gentlest force [`FORCE_PERCENT`] names: the low end of the end
+/// effector's own range.
+pub const FORCE_PERCENT_MIN: f64 = 0.0;
+
+/// The strongest force [`FORCE_PERCENT`] names: the high end of the end
+/// effector's own range.
+pub const FORCE_PERCENT_MAX: f64 = 100.0;
+
 #[cfg(test)]
 mod tests {
     use super::ICEORYX2_VERSION;

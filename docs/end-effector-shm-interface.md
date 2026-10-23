@@ -191,6 +191,12 @@ The full text is the spec; the decisions behind it:
   provider answers `stale_target` instead of executing one that misses any
   of them. A `joints` sample older than 200 ms when the provider takes it is
   dropped. A `stop` always executes.
+- **Conventions ride the opaque payloads.** The grip force a client names
+  for every end effector alike (`force_percent`, `0` … `100` over the
+  device's own range) travels as `extra.force_percent` to a provider that
+  declares that key, and the provider reports what it applied at
+  `detail.data.grip_force` (spec §9). No layout changes, so the contract
+  stays version 1; a provider that does not declare the key never sees it.
 
 ## What the daemon does with a provider
 
@@ -359,6 +365,14 @@ it returns, so a provider can be restarted inside one process.
 
 `FlangeBus` is the provider's side of the flange relay (above).
 
+The grip-force convention (spec §9) is `FORCE_PERCENT` and `GRIP_FORCE`
+(the keys), `force_percent` (the parse of a `set`, which `check_set` also
+applies to a declared key), `ForceRange::at_percent` (the linear map onto a
+native range) and `GripForce` (the report). The hand framework
+(`d1fw-ee-hand`) applies it for every hand: a hand model with an adjustable
+force declares its native range in `HandFacts::force` and applies the cap in
+`HandLink::set_force_cap`; one without reports `fixed`.
+
 `TestProvider` (feature `test-support`) is a simulated one-joint gripper
 that records every call: what a test of the daemon's side runs against, and
 what `d1-ee-test-provider` (crate `d1fw-ee-harness`) serves as a process.
@@ -380,7 +394,9 @@ surface does, raises the stop generation, and answers with the HTTP status
 the daemon would (`HostError::http_status`). `Host::start_with_flange_channel`
 adds the flange relay over any `CanFdBus` — a simulated device — with the
 relay's gates; `Host::latch` raises the soft-kill latch and
-`Host::set_arm_faulted` the status bit `arm_faulted`.
+`Host::set_arm_faulted` the status bit `arm_faulted`. A `SetRequest`'s
+`force_percent` follows the daemon's grip-force rules, and
+`Host::grip_force` answers the side's report as the daemon serves it.
 
 - `Recorder` records every frame the relay puts on the channel and the kind
   it was relayed as; `golden` compares a run's steps (status, frames,

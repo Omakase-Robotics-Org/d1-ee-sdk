@@ -10,6 +10,11 @@ provider's tests, so a provider is proven without d1-firmwared or a robot:
   `Host::start_with_flange_channel`, the flange relay over any `CanFdBus`
   (a simulated device) with the relay's gates; `latch` and
   `set_arm_faulted` drive the soft-kill latch and the `arm_faulted` bit.
+  A `SetRequest`'s `force_percent` follows the daemon's grip-force rules
+  (spec §9): refused outside `[0, 100]`, beside a grip or a torque, or
+  inside `extra`; sent as `extra.force_percent` to a provider that declares
+  the key and dropped for one that does not; `Host::grip_force` is the
+  side's report as the daemon serves it.
 - `Recorder` and `golden`: every frame the relay puts on the channel, with
   its kind, compared step by step with a recording within timing
   tolerances.

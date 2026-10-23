@@ -13,9 +13,11 @@ use d1fw_ee_harness::{
     Host, HostErrorKind, HostSettings, Recorder, SetRequest, conformance, status,
 };
 use d1fw_ee_provider::{
-    FlangeBus, FlangeNames, FlangeOptions, Frame, GripPreset, ServeOptions, ShmRoot, TEST_TOOL,
-    TestProvider, TxKind, contract::clock::wall_clock_us, contract::flange,
+    FORCE_PERCENT, FlangeBus, FlangeNames, FlangeOptions, Frame, GRIP_FORCE, GripForce, GripPreset,
+    ServeOptions, ShmRoot, TEST_TOOL, TestProvider, TxKind, contract::clock::wall_clock_us,
+    contract::flange,
 };
+use serde_json::{Value, json};
 
 const WAIT: Duration = Duration::from_secs(10);
 
@@ -233,4 +235,157 @@ async fn the_test_provider_process_follows_the_lifecycle() {
         observed.verbs,
         vec!["set", "clear_fault", "registers", "joints", "stop"]
     );
+}
+
+async fn served_with(
+    root: &ShmRoot,
+    provider: TestProvider,
+) -> (
+    Host,
+    Arc<d1fw_ee_provider::TestRecord>,
+    d1fw_ee_provider::ProviderHandle,
+) {
+    let host = Host::start(HostSettings::new("a", root.clone()));
+    let record = provider.record();
+    let handle = d1fw_ee_provider::serve(
+        Arc::new(provider),
+        ServeOptions::new(root.clone(), host.names().clone()),
+    )
+    .await
+    .expect("serve the test provider");
+    host.until_available(WAIT).await;
+    (host, record, handle)
+}
+
+fn last_extra(record: &d1fw_ee_provider::TestRecord) -> Option<serde_json::Map<String, Value>> {
+    record
+        .sets
+        .lock()
+        .unwrap()
+        .last()
+        .expect("a set reached the provider")
+        .extra
+        .clone()
+}
+
+/// The daemon's rules for `force_percent` (spec §9.1), whatever the side's
+/// provider: out of range, beside a grip or a torque, or inside `extra`, it
+/// is refused before the wire.
+async fn refuses_malformed_force_percent(host: &Host, record: &d1fw_ee_provider::TestRecord) {
+    let before = record.sets.lock().unwrap().len();
+    for request in [
+        SetRequest::openness(0.0).force_percent(-0.5),
+        SetRequest::openness(0.0).force_percent(100.5),
+        SetRequest::openness(0.0).force_percent(f64::NAN),
+        SetRequest::openness(0.0).force_percent(f64::INFINITY),
+        SetRequest::openness(0.0)
+            .grip(GripPreset::Firm)
+            .force_percent(50.0),
+        SetRequest {
+            torque_nm: Some(0.5),
+            ..SetRequest::openness(0.0).force_percent(50.0)
+        },
+        SetRequest {
+            extra: Some(serde_json::Map::from_iter([(
+                FORCE_PERCENT.to_owned(),
+                Value::from(50.0),
+            )])),
+            ..SetRequest::openness(0.0)
+        },
+    ] {
+        assert_eq!(status(&host.set(&request).await), 422, "{request:?}");
+    }
+    assert_eq!(
+        record.sets.lock().unwrap().len(),
+        before,
+        "refused sets never reach the provider"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn force_percent_reaches_a_provider_that_declares_it() {
+    let root = ShmRoot::scratch();
+    let mut descriptor = TestProvider::gripper_descriptor();
+    descriptor
+        .capabilities
+        .set_extra
+        .push(FORCE_PERCENT.to_owned());
+    let (host, record, _handle) =
+        served_with(&root, TestProvider::with_descriptor(descriptor)).await;
+
+    let request = SetRequest {
+        extra: Some(serde_json::Map::from_iter([(
+            "speed".to_owned(),
+            Value::from(2),
+        )])),
+        ..SetRequest::openness(0.0).force_percent(40.0)
+    };
+    assert_eq!(status(&host.set(&request).await), 200);
+    assert_eq!(
+        Value::Object(last_extra(&record).expect("an extra")),
+        json!({"speed": 2, FORCE_PERCENT: 40.0}),
+        "merged beside the client's own extra keys"
+    );
+    assert_eq!(status(&host.set(&SetRequest::openness(1.0)).await), 200);
+    assert_eq!(last_extra(&record), None, "absent, nothing is added");
+    refuses_malformed_force_percent(&host, &record).await;
+
+    // The test provider publishes no report: a declaring provider without
+    // one is served as none.
+    let state = host.read().await.expect("a state");
+    assert_eq!(host.grip_force(&state), None);
+    let mut reported = state.clone();
+    reported.detail = Some(d1fw_ee_provider::Detail {
+        schema: "test.position/1".to_owned(),
+        data: json!({GRIP_FORCE: GripForce::fixed(Some(40.0))}),
+    });
+    assert_eq!(
+        host.grip_force(&reported),
+        Some(GripForce::fixed(Some(40.0)))
+    );
+    reported.detail = Some(d1fw_ee_provider::Detail {
+        schema: "test.position/1".to_owned(),
+        data: json!({GRIP_FORCE: {"mode": "fixed", "requested_percent": 400.0}}),
+    });
+    assert_eq!(host.grip_force(&reported), None, "a malformed report");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn force_percent_is_dropped_for_a_provider_that_does_not_declare_it() {
+    let root = ShmRoot::scratch();
+    let (host, record, _handle) = served(&root).await;
+
+    let state = host.read().await.expect("a state");
+    assert_eq!(host.grip_force(&state), Some(GripForce::not_taken(None)));
+
+    assert_eq!(
+        status(
+            &host
+                .set(&SetRequest::openness(0.0).force_percent(70.0))
+                .await
+        ),
+        200,
+        "accepted although the provider does not take it"
+    );
+    assert_eq!(last_extra(&record), None, "dropped before the wire");
+    assert_eq!(
+        host.grip_force(&state),
+        Some(GripForce::not_taken(Some(70.0)))
+    );
+    let speed = SetRequest {
+        extra: Some(serde_json::Map::from_iter([(
+            "speed".to_owned(),
+            Value::from(1),
+        )])),
+        ..SetRequest::openness(0.5).force_percent(10.0)
+    };
+    assert_eq!(status(&host.set(&speed).await), 200);
+    assert_eq!(
+        Value::Object(last_extra(&record).expect("an extra")),
+        json!({"speed": 1}),
+        "the client's own extra keys pass unchanged"
+    );
+    assert_eq!(status(&host.set(&SetRequest::openness(1.0)).await), 200);
+    assert_eq!(host.grip_force(&state), Some(GripForce::not_taken(None)));
+    refuses_malformed_force_percent(&host, &record).await;
 }

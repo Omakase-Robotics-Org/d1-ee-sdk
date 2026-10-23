@@ -21,8 +21,12 @@ daemon links none of it.
   committed schema.
 - `provider` — `HandProvider<L: HandLink>`, the `end_effector.shm/1` provider
   of any hand link: openness through the model's posture mapping, joints as
-  fractions of each axis's wire range, the first command after a stop
-  enabling the joints, a state read that never interrupts a command, and a
+  fractions of each axis's wire range, the grip force (every hand declares
+  `force_percent`: a model whose `HandFacts::force` names a native range
+  has it mapped and applied by `HandLink::set_force_cap` before the
+  closedness command, a `set` without it restoring the device's default,
+  and one without a range reports it `fixed`; the `grip_force` report rides
+  every state), the first command after a stop enabling the joints, a state read that never interrupts a command, and a
   stop that disables without opening (a repeated stop with no command in
   between sends nothing, since the daemon delivers one stop twice).
 - `channel` — `FlangeChannel`, the relayed channel as a `d1fw_canfd::CanFdBus`:
