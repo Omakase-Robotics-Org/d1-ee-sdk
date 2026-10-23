@@ -17,7 +17,7 @@ use std::{
 
 use d1fw_canfd::{CanFdBus, FrameKind};
 use d1fw_ee_harness::{
-    Host, HostSettings, ProviderProcess, SetRequest,
+    HostSettings, ProviderProcess,
     golden::{self, Comparison, Steps, Tolerance},
     status,
 };
@@ -27,7 +27,9 @@ use d1fw_ee_provider::{
 };
 use serde_json::Value;
 
-pub use d1fw_ee_harness::Recorder;
+// A hand crate's own tests drive its provider through these (a `set` with
+// `force_percent`, for one) without depending on the host's crate itself.
+pub use d1fw_ee_harness::{Host, Recorder, SetRequest};
 
 use crate::{
     HandProvider, Side,

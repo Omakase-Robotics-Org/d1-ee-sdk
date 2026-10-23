@@ -63,7 +63,9 @@ versions follow `0.x` SemVer (README, "Versions").
   the device's default. A model without a range accepts the percent and
   reports `fixed`. `hand.state/1` gains the optional `grip_force` property
   (schema updated additively), present in every state a `HandProvider`
-  publishes. A hand crate adds `force` to its `HandFacts`.
+  publishes. A hand crate adds `force` to its `HandFacts`. The hand
+  harness (feature `test-support`) re-exports `Host` and `SetRequest`, so a
+  hand crate's tests send a `set` with `force_percent` through the host.
 
 - The provider manifest `omakase-ee-provider/1`: its JSON Schema
   (`schema/omakase-ee-provider-1.schema.json`) and the crate
