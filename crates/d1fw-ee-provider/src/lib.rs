@@ -16,7 +16,8 @@
 //!   than [`ports::JOINTS_MAX_AGE_MS`] are dropped (answered
 //!   `stale_target`), never executed late;
 //! - a `set` naming a grip, a torque or an `extra` key the descriptor does
-//!   not declare, and `joints` of the wrong count or outside a joint's
+//!   not declare, a declared `force_percent` that is not a number in
+//!   `[0, 100]`, and `joints` of the wrong count or outside a joint's
 //!   limits, are refused before the provider sees them;
 //! - a rise of the daemon's stop generation (its `control` topic) calls
 //!   [`Provider::stop`] even when the `stop` request itself did not arrive;
@@ -29,6 +30,12 @@
 //! channel delivers, and sends frames labelled with what they do to the
 //! device ([`TxKind`]), which the relay gates on.
 //!
+//! A provider that takes the grip-force convention
+//! (`spec/end_effector.shm/1.md` §9) lists [`FORCE_PERCENT`] in its
+//! descriptor's `set_extra`, reads the value with [`force_percent`], maps it
+//! with [`ForceRange::at_percent`], and puts a [`GripForce`] report at
+//! [`GRIP_FORCE`] of every state's detail `data`.
+//!
 //! The daemon's side of both contracts is d1-firmwared's; `d1fw-ee-harness`
 //! stands it up in a provider's tests. The contracts' texts are
 //! `spec/end_effector.shm/1.md` and `spec/flange_bus.shm/1.md` at the
@@ -38,7 +45,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 pub use d1fw_ee_shm_contract::{
-    self as contract, CONTRACT, SCHEMA_VERSION,
+    self as contract, CONTRACT, FORCE_PERCENT, FORCE_PERCENT_MAX, FORCE_PERCENT_MIN, GRIP_FORCE,
+    SCHEMA_VERSION,
     model::{
         Capabilities, ContractError, Descriptor, Detail, ErrorKind, FaultClear, ForceSensing,
         GripPreset, Joint, JointUnit, ProviderError, Register, Registers, SetCommand, State, Tick,
@@ -51,6 +59,7 @@ pub use d1fw_ee_shm_contract::{
 use tokio::sync::watch;
 
 mod flange;
+mod grip_force;
 mod runtime;
 #[cfg(any(test, feature = "test-support"))]
 mod test_provider;
@@ -62,6 +71,9 @@ pub use d1fw_ee_shm_contract::flange::{
     model::{ChannelFacts, Counters, Frame, RxFrame, Status as FlangeStatus, TxKind},
 };
 pub use flange::{FlangeBus, FlangeError, FlangeOptions, FlangeStats};
+pub use grip_force::{
+    ForceRange, ForceUnit, GripForce, GripForceMode, check_force_percent, force_percent,
+};
 pub use runtime::{ProviderHandle, ServeOptions, serve};
 #[cfg(any(test, feature = "test-support"))]
 pub use test_provider::{
@@ -153,7 +165,8 @@ pub trait Provider: Send + Sync + 'static {
 ///
 /// [`ErrorKind::Refused`] without the `openness` capability;
 /// [`ErrorKind::Unprocessable`] for a grip, torque or `extra` key the
-/// descriptor does not declare.
+/// descriptor does not declare, and for a declared [`FORCE_PERCENT`] that is
+/// not a finite number in `[0, 100]`.
 pub fn check_set(descriptor: &Descriptor, command: &SetCommand) -> Result<(), ProviderError> {
     let capabilities = &descriptor.capabilities;
     if !capabilities.openness {
@@ -187,6 +200,7 @@ pub fn check_set(descriptor: &Descriptor, command: &SetCommand) -> Result<(), Pr
             format!("this end effector takes no extra parameter {key:?}"),
         ));
     }
+    force_percent(command)?;
     Ok(())
 }
 

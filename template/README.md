@@ -63,6 +63,15 @@ Commit the `Cargo.lock` the first build writes.
    of mass, inertia, tool centre point) and its guard envelope id. The SDK
    refuses a command the descriptor does not admit before it reaches the
    provider.
+   To take a client's grip force (`force_percent`, `0` gentlest … `100`
+   strongest over the device's own range), list the key `force_percent` in
+   `set_extra` (`d1fw_ee_provider::FORCE_PERCENT`), read it in `set` with
+   `d1fw_ee_provider::force_percent`, map it with `ForceRange::at_percent`,
+   and publish the `GripForce` report at `detail.data.grip_force` of every
+   state; a device without an adjustable force declares it too and reports
+   `fixed`. The convention is `spec/end_effector.shm/1.md` §9. Without the
+   key the daemon drops a client's `force_percent` and reports the side
+   `not_taken`.
 3. Describe every configuration key in `manifest.json`'s `config_schema`
    (JSON Schema draft 2020-12 of the TOML file read as JSON). A provider
    that reads no configuration file removes `launch.config_dir`,

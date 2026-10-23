@@ -34,6 +34,39 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ### Added
 
+- **The grip-force convention** (`spec/end_effector.shm/1.md` §9): one
+  `force_percent` on the end-effector `set`, `0` (the gentlest force the end
+  effector applies) … `100` (its strongest), mapped linearly onto each
+  device's own range, and the `grip_force` report (`mode` `adjustable`,
+  `fixed` or `not_taken`, the requested percent, the applied native value,
+  its unit token, the native range and, where the vendor documents a basis,
+  approximate newtons). It is a convention over the existing `extra` object
+  and detail `data`: no layout, type name, code or `LAYOUT_SHA256` changes,
+  and the contract stays version 1; §6 says such conventions need no new
+  major. The contract crate names the keys and the range
+  (`FORCE_PERCENT`, `GRIP_FORCE`, `FORCE_PERCENT_MIN`, `FORCE_PERCENT_MAX`).
+- `d1fw-ee-provider`: `GripForce` (with `GripForceMode`, `ForceUnit`,
+  `ForceRange::at_percent` and `GripForce::validate`), the parse
+  `force_percent(&SetCommand)` and `check_force_percent`; `check_set`
+  refuses a declared `force_percent` that is not a finite number in
+  `[0, 100]` (`unprocessable`).
+- `d1fw-ee-harness`: `SetRequest::force_percent`, applied by `Host` as the
+  daemon does — refused outside `[0, 100]`, beside a grip or a torque, or
+  inside a client `extra`; sent as `extra.force_percent` to a provider that
+  declares the key, dropped before the wire for one that does not — and
+  `Host::grip_force`, the side's report (the provider's, or `not_taken`).
+- `d1fw-ee-hand`: every hand declares `force_percent`. `HandFacts::force`
+  (`HandForce`: unit and native range) names a model's adjustable
+  grip force and `HandLink::set_force_cap` applies it, before the
+  closedness command of every `set`; the cap stays in effect for streamed
+  joints until the next `set`, and a `set` without `force_percent` restores
+  the device's default. A model without a range accepts the percent and
+  reports `fixed`. `hand.state/1` gains the optional `grip_force` property
+  (schema updated additively), present in every state a `HandProvider`
+  publishes. A hand crate adds `force` to its `HandFacts`. The hand
+  harness (feature `test-support`) re-exports `Host` and `SetRequest`, so a
+  hand crate's tests send a `set` with `force_percent` through the host.
+
 - The provider manifest `omakase-ee-provider/1`: its JSON Schema
   (`schema/omakase-ee-provider-1.schema.json`) and the crate
   `d1fw-ee-manifest` — the `ProviderManifest` type, the rules the schema
