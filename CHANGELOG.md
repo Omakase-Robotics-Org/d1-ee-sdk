@@ -6,6 +6,8 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-15
+
 ### Fixed
 
 - `FlangeBus` no longer stays busy for good after the relay binds it afresh.
