@@ -92,6 +92,11 @@ pub fn descriptor(settings: Settings) -> Descriptor {
             openness: true,
             joints: true,
             max_command_hz: Some(MAX_COMMAND_HZ),
+            // A device whose grip force can be set takes the grip-force
+            // convention (spec `end_effector.shm/1` §9): list
+            // `d1fw_ee_provider::FORCE_PERCENT` in `set_extra`, read it in
+            // `set` with `d1fw_ee_provider::force_percent`, and put a
+            // `GripForce` report at `GRIP_FORCE` of every state's detail.
             ..Capabilities::default()
         },
         set_timeout_ms: None,

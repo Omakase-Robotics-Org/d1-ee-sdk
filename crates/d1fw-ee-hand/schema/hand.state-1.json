@@ -34,6 +34,107 @@
       },
       "type": "array"
     },
+    "grip_force": {
+      "description": "The grip-force report of the end_effector.shm/1 grip-force convention (spec section 9.2): how the hand takes `force_percent` and the force in effect. Optional: a hand provider built before the convention publishes none.",
+      "properties": {
+        "applied_value": {
+          "description": "The force setting in effect, in `unit`, after rounding; null when not known.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "approx_newtons": {
+          "description": "The approximate grip force in newtons of the value in effect, only where the vendor documentation gives a basis; otherwise null.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "approx_newtons_range": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ],
+          "description": "The approximate newtons at `range.min` and `range.max`, by the same rule as `approx_newtons`."
+        },
+        "mode": {
+          "description": "`adjustable`: `force_percent` maps onto an adjustable force. `fixed`: the hand has no adjustable grip force and applied its fixed force. `not_taken` is written only by the daemon.",
+          "enum": [
+            "adjustable",
+            "fixed",
+            "not_taken"
+          ],
+          "type": "string"
+        },
+        "range": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ],
+          "description": "The native values `force_percent` 0 and 100 map to, in `unit`; null unless `mode` is `adjustable`."
+        },
+        "requested_percent": {
+          "description": "The `force_percent` of the newest `set`; null when it named none or no `set` has arrived.",
+          "maximum": 100,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "description": "The native unit of `applied_value` and `range`; null exactly when `applied_value` is null.",
+          "enum": [
+            "percent_of_device_scale",
+            "newton_metre",
+            "newton",
+            "milliampere",
+            "ampere",
+            "permille_of_rated_current",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "requested_percent",
+        "applied_value",
+        "unit",
+        "range",
+        "approx_newtons",
+        "approx_newtons_range"
+      ],
+      "type": "object"
+    },
     "live": {
       "description": "Whether `positions` came from a reading taken for THIS call, rather\nthan from the last one the command path happened to take.\n\nA read on these hands is not free — it competes with the command path\nfor the arm's single passthrough channel — so a busy hand answers\nwith its last sample and says so here.",
       "type": "boolean"

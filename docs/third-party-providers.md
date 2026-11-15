@@ -41,7 +41,10 @@ the device's bus and declare what the device is in the descriptor: joints
 (name, unit `rad` or `fraction`, min, max), capabilities, command ceiling,
 tool, guard envelope id. The rules a provider must follow are
 `spec/end_effector.shm/1.md` (and `spec/flange_bus.shm/1.md` for a device on
-the arm's flange CAN channel).
+the arm's flange CAN channel). A provider that takes the client's grip force
+(`force_percent`) declares the `set_extra` key `force_percent` and publishes
+the `grip_force` report, the convention of that spec's §9; one that does not
+is served unchanged, and the daemon reports its side `not_taken`.
 
 ## 2. Pass conformance locally
 

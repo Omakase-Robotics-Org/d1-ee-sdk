@@ -13,8 +13,10 @@
 //! - [`state`] — [`HandState`], the `hand.state/1` detail every hand
 //!   publishes (the daemon's telemetry reads it by that id);
 //! - [`provider`] — [`HandProvider`], the `end_effector.shm/1` provider of
-//!   any [`HandLink`]: openness, joints, a state read that never interrupts
-//!   a command, and a stop that disables without opening;
+//!   any [`HandLink`]: openness, joints, the grip force (`force_percent`,
+//!   mapped onto the [`HandForce`] a model declares, or reported fixed
+//!   without one), a state read that never interrupts a command, and a stop
+//!   that disables without opening;
 //! - [`channel`] — [`FlangeChannel`], the relayed channel as a
 //!   `d1fw_canfd::CanFdBus`, so a link written against the bus seam runs
 //!   over the relay unchanged and labels its frames with
@@ -39,5 +41,5 @@ pub mod state;
 pub mod tool;
 
 pub use channel::FlangeChannel;
-pub use provider::{HandFacts, HandLink, HandProvider, Side};
+pub use provider::{HandFacts, HandForce, HandLink, HandProvider, Side};
 pub use state::{HAND_STATE, HAND_STATE_SCHEMA, HandSample, HandState};

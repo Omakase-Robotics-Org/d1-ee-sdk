@@ -16,6 +16,10 @@
 //!   `joints` target replaces the one waiting (newest wins).
 //! - **The stop.** A stop raises the stop generation on `control` at once,
 //!   drops a waiting `joints` target, then asks the provider to stop.
+//! - **The grip force** (spec §9). A `set`'s `force_percent` reaches a
+//!   provider that declares the key as `extra.force_percent`, and is dropped
+//!   before the wire for one that does not; [`Host::grip_force`] is the
+//!   side's report as the daemon serves it.
 //!
 //! iceoryx2's ports are not `Send`, so one OS thread owns them; the async
 //! methods hand it work over a channel and await the answer on a oneshot.
@@ -30,8 +34,9 @@ use std::{
 };
 
 use d1fw_canfd::CanFdBus;
+use d1fw_ee_provider::{GripForce, check_force_percent};
 use d1fw_ee_shm_contract::{
-    clock,
+    FORCE_PERCENT, GRIP_FORCE, clock,
     model::{
         self, Command, CommandEnvelope, CommandOutcome, ContractError, Control, FaultEnvelope,
         FaultOp, FaultOutcome, Heartbeat, JointTargets, SetCommand,
@@ -129,6 +134,9 @@ pub struct SetRequest {
     pub torque_nm: Option<f64>,
     /// Driver-scoped parameters.
     pub extra: Option<Map<String, Value>>,
+    /// The grip force, `0` gentlest … `100` strongest over the end
+    /// effector's own range (spec §9).
+    pub force_percent: Option<f64>,
 }
 
 impl SetRequest {
@@ -153,6 +161,13 @@ impl SetRequest {
     #[must_use]
     pub const fn grip(mut self, grip: model::GripPreset) -> Self {
         self.grip = Some(grip);
+        self
+    }
+
+    /// The same request with `force_percent`.
+    #[must_use]
+    pub const fn force_percent(mut self, percent: f64) -> Self {
+        self.force_percent = Some(percent);
         self
     }
 }
@@ -200,6 +215,9 @@ struct Shared {
     fault_seq: AtomicU64,
     ticks: watch::Sender<Option<model::Tick>>,
     joints_newest_us: tokio::sync::Mutex<Option<u64>>,
+    /// The `force_percent` of the newest `set` sent, `None` when it named
+    /// none.
+    requested_force: Mutex<Option<f64>>,
 }
 
 impl Shared {
@@ -402,6 +420,7 @@ impl Host {
             fault_seq: AtomicU64::new(0),
             ticks: watch::channel(None).0,
             joints_newest_us: tokio::sync::Mutex::new(None),
+            requested_force: Mutex::new(None),
         });
         let (inbound, receiver) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
@@ -520,11 +539,14 @@ impl Host {
     /// [`HostErrorKind::Unavailable`] with no declaration or no live
     /// provider; [`HostErrorKind::Refused`] without the `openness`
     /// capability; [`HostErrorKind::Unprocessable`] for an openness outside
-    /// `[0, 1]` or an undeclared grip, torque or `extra` key; the provider's
+    /// `[0, 1]`, an undeclared grip, torque or `extra` key, a
+    /// `force_percent` outside `[0, 100]` or together with a grip or a
+    /// torque, and a client `extra` naming `force_percent`; the provider's
     /// own refusal or failure; [`HostErrorKind::Timeout`].
     pub async fn set(&self, request: &SetRequest) -> Result<(), HostError> {
         let command = self.validate_set(request)?;
         let target = self.shared.device()?;
+        *self.shared.requested_force.lock().expect("force lock") = request.force_percent;
         let timeout = if command.wait {
             let set_timeout = self.shared.declared.get().map_or(
                 model::DEFAULT_SET_TIMEOUT_MS,
@@ -574,6 +596,28 @@ impl Host {
                 ),
             ));
         }
+        if let Some(percent) = request.force_percent {
+            check_force_percent(percent)
+                .map_err(|error| HostError::new(HostErrorKind::Unprocessable, error.message))?;
+            if request.grip.is_some() || request.torque_nm.is_some() {
+                return Err(HostError::new(
+                    HostErrorKind::Unprocessable,
+                    format!(
+                        "{FORCE_PERCENT} names the grip force, as grip and torque_nm do; send one"
+                    ),
+                ));
+            }
+        }
+        if request
+            .extra
+            .as_ref()
+            .is_some_and(|extra| extra.contains_key(FORCE_PERCENT))
+        {
+            return Err(HostError::new(
+                HostErrorKind::Unprocessable,
+                format!("{FORCE_PERCENT} is the set's own field, not an extra parameter"),
+            ));
+        }
         if let Some(extra) = &request.extra
             && let Some(key) = extra
                 .keys()
@@ -587,12 +631,25 @@ impl Host {
                 ),
             ));
         }
+        // A provider that does not declare the key never sees it: the set
+        // leaves exactly as it would have without it.
+        let mut extra = request.extra.clone();
+        if let Some(percent) = request.force_percent
+            && capabilities
+                .set_extra
+                .iter()
+                .any(|key| key == FORCE_PERCENT)
+        {
+            extra
+                .get_or_insert_with(Map::new)
+                .insert(FORCE_PERCENT.to_owned(), Value::from(percent));
+        }
         Ok(SetCommand {
             openness,
             wait: request.wait.unwrap_or(true),
             grip: request.grip,
             torque_nm: request.torque_nm,
-            extra: request.extra.clone(),
+            extra,
         })
     }
 
@@ -718,6 +775,30 @@ impl Host {
             state.effort = Vec::new();
         }
         Ok(state)
+    }
+
+    /// The side's grip-force report as the daemon serves it beside `state`
+    /// (spec §9.2): the provider's `detail.data.grip_force` when its
+    /// descriptor declares `force_percent` (`None` when that report is
+    /// missing or breaks a rule of the report), otherwise the `not_taken`
+    /// report naming the newest `set`'s `force_percent`. `None` before a
+    /// declaration is accepted.
+    #[must_use]
+    pub fn grip_force(&self, state: &model::State) -> Option<GripForce> {
+        let descriptor = self.shared.descriptor()?;
+        if !descriptor
+            .capabilities
+            .set_extra
+            .iter()
+            .any(|key| key == FORCE_PERCENT)
+        {
+            let requested = *self.shared.requested_force.lock().expect("force lock");
+            return Some(GripForce::not_taken(requested));
+        }
+        let report = state.detail.as_ref()?.data.get(GRIP_FORCE)?;
+        serde_json::from_value::<GripForce>(report.clone())
+            .ok()
+            .filter(|report| report.validate().is_ok())
     }
 
     /// Raise the stop generation at once, drop a waiting `joints` target,

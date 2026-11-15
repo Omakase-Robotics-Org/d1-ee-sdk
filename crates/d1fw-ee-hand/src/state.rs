@@ -8,7 +8,7 @@
 //! meaning here must stay what that schema says, and
 //! `tests/hand_state_schema.rs` validates a serialized state against it.
 
-use d1fw_ee_provider::Detail;
+use d1fw_ee_provider::{Detail, GripForce};
 use serde::Serialize;
 
 /// The schema id of the detail: a multi-finger hand's sampled state.
@@ -45,6 +45,11 @@ pub struct HandState {
     /// Capability tokens, repeated here so a consumer that only polls state
     /// does not have to fetch capabilities separately.
     pub features: Vec<String>,
+    /// The grip-force report (spec `end_effector.shm/1` §9.2), which
+    /// `HandProvider` puts in every state it publishes; not serialized when
+    /// `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grip_force: Option<GripForce>,
 }
 
 /// What one live sample read off a hand's wire.
@@ -77,6 +82,7 @@ impl HandState {
             faults: sample.faults,
             live: true,
             features: features.iter().map(|token| (*token).to_owned()).collect(),
+            grip_force: None,
         }
     }
 
@@ -95,6 +101,7 @@ impl HandState {
             faults: Vec::new(),
             live: false,
             features: features.iter().map(|token| (*token).to_owned()).collect(),
+            grip_force: None,
         }
     }
 
