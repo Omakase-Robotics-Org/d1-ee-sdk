@@ -388,6 +388,7 @@ async fn force_percent_is_dropped_for_a_provider_that_does_not_declare_it() {
     assert_eq!(status(&host.set(&SetRequest::openness(1.0)).await), 200);
     assert_eq!(host.grip_force(&state), Some(GripForce::not_taken(None)));
     refuses_malformed_force_percent(&host, &record).await;
+}
 
 /// Remove every file of `root`'s services: the POSIX shared-memory objects
 /// under its prefix, as systemd-logind's `RemoveIPC=yes` removes every one
