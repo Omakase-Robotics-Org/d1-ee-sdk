@@ -6,6 +6,24 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ## [Unreleased]
 
+### Fixed
+
+- A provider whose services' shared-memory segments were removed under it
+  opens them again by itself. systemd-logind's default `RemoveIPC=yes`
+  deletes every `/dev/shm` object of an account when its last login session
+  ends, and d1-firmwared and its providers run under a login account: the
+  topics already connected kept flowing, but a `command` request sent
+  afterwards never reached the provider, and a restarted provider found the
+  static configuration without its dynamic segment (`SystemInFlux`). The
+  provider runtime (`serve`) and `FlangeBus` now check their services'
+  dynamic segments every second (missing, or another file under the same
+  name) and, when one is gone, give up their ports without dropping them and
+  open the services again every second until d1-firmwared has opened its
+  own afresh; the side is then announced again (descriptor, heartbeat) and
+  the flange channel admitted again. The given-up ports stay registered, so
+  leaving them cannot remove the new services' files by name. New
+  dependency: `iceoryx2-cal` `=0.9.3`, the same release as `iceoryx2`.
+
 ### Changed
 
 - The providers the hub distributes are named `<vendor>.<model>` and

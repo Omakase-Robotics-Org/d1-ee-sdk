@@ -37,7 +37,11 @@ use iceoryx2::{
 use tokio::{runtime::Handle, sync::watch, task::JoinHandle};
 use tracing::{debug, info, warn};
 
-use crate::{Provider, check_joints, check_set};
+use crate::{
+    Provider,
+    backing::{self, Backing},
+    check_joints, check_set,
+};
 
 /// How long the port thread waits for work before it polls its ports again.
 /// The latency a command sees before it is handed to the provider.
@@ -378,6 +382,8 @@ struct Ports {
     control: Subscriber<Ipc, wire::Control, ()>,
     command: CommandServer,
     fault: FaultServer,
+    /// The services' dynamic segments, checked every [`backing::PERIOD`].
+    backing: Backing,
     // Declared last: fields drop in order, and the node must outlive its
     // ports.
     _node: Node<Ipc>,
@@ -391,74 +397,110 @@ impl Ports {
     fn open(options: &ServeOptions) -> Result<Self, ContractError> {
         let node = options.root.node(&options.node_name)?;
         let names = &options.names;
+        let config = options.root.config()?;
+        let mut backing = Backing::default();
         let publisher = |suffix: &str| names.name(suffix);
-        let descriptor = ports::open_topic::<wire::Descriptor>(
-            &node,
-            &publisher(names::DESCRIPTOR),
-            ports::DESCRIPTOR_TOPIC,
-        )?
-        .publisher_builder()
-        .create()
-        .map_err(|error| {
-            transport(
-                &format!(
-                    "create the descriptor publisher of {} (is another provider serving this \
+        let descriptor = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Descriptor>(
+                    &node,
+                    &publisher(names::DESCRIPTOR),
+                    ports::DESCRIPTOR_TOPIC,
+                )?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| {
+                transport(
+                    &format!(
+                        "create the descriptor publisher of {} (is another provider serving this \
                      side?)",
-                    names.base()
-                ),
-                error,
-            )
-        })?;
-        let heartbeat = ports::open_topic::<wire::Heartbeat>(
-            &node,
-            &publisher(names::HEARTBEAT),
-            ports::HEARTBEAT_TOPIC,
-        )?
-        .publisher_builder()
-        .create()
-        .map_err(|error| transport("create the heartbeat publisher", error))?;
-        let state =
-            ports::open_topic::<wire::State>(&node, &publisher(names::STATE), ports::STATE_TOPIC)?
-                .publisher_builder()
-                .create()
-                .map_err(|error| transport("create the state publisher", error))?;
-        let tick =
-            ports::open_topic::<wire::Tick>(&node, &publisher(names::TICK), ports::TICK_TOPIC)?
-                .publisher_builder()
-                .create()
-                .map_err(|error| transport("create the tick publisher", error))?;
-        let joints = ports::open_topic::<wire::JointsCommand>(
-            &node,
-            &publisher(names::JOINTS),
-            ports::JOINTS_TOPIC,
-        )?
-        .subscriber_builder()
-        .create()
-        .map_err(|error| transport("create the joints subscriber", error))?;
-        let control = ports::open_topic::<wire::Control>(
-            &node,
-            &publisher(names::CONTROL),
-            ports::CONTROL_TOPIC,
-        )?
-        .subscriber_builder()
-        .create()
-        .map_err(|error| transport("create the control subscriber", error))?;
-        let command = ports::open_rpc::<wire::CommandRequest, wire::CommandResponse>(
-            &node,
-            &publisher(names::COMMAND),
-            ports::RPC,
-        )?
-        .server_builder()
-        .create()
-        .map_err(|error| transport("create the command server", error))?;
-        let fault = ports::open_rpc::<wire::FaultRequest, wire::FaultResponse>(
-            &node,
-            &publisher(names::FAULT),
-            ports::RPC,
-        )?
-        .server_builder()
-        .create()
-        .map_err(|error| transport("create the fault server", error))?;
+                        names.base()
+                    ),
+                    error,
+                )
+            })?;
+        let heartbeat = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Heartbeat>(
+                    &node,
+                    &publisher(names::HEARTBEAT),
+                    ports::HEARTBEAT_TOPIC,
+                )?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| transport("create the heartbeat publisher", error))?;
+        let state = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::State>(
+                    &node,
+                    &publisher(names::STATE),
+                    ports::STATE_TOPIC,
+                )?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| transport("create the state publisher", error))?;
+        let tick = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Tick>(&node, &publisher(names::TICK), ports::TICK_TOPIC)?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| transport("create the tick publisher", error))?;
+        let joints = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::JointsCommand>(
+                    &node,
+                    &publisher(names::JOINTS),
+                    ports::JOINTS_TOPIC,
+                )?,
+            )?
+            .subscriber_builder()
+            .create()
+            .map_err(|error| transport("create the joints subscriber", error))?;
+        let control = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Control>(
+                    &node,
+                    &publisher(names::CONTROL),
+                    ports::CONTROL_TOPIC,
+                )?,
+            )?
+            .subscriber_builder()
+            .create()
+            .map_err(|error| transport("create the control subscriber", error))?;
+        let command = backing
+            .watch(
+                &config,
+                ports::open_rpc::<wire::CommandRequest, wire::CommandResponse>(
+                    &node,
+                    &publisher(names::COMMAND),
+                    ports::RPC,
+                )?,
+            )?
+            .server_builder()
+            .create()
+            .map_err(|error| transport("create the command server", error))?;
+        let fault = backing
+            .watch(
+                &config,
+                ports::open_rpc::<wire::FaultRequest, wire::FaultResponse>(
+                    &node,
+                    &publisher(names::FAULT),
+                    ports::RPC,
+                )?,
+            )?
+            .server_builder()
+            .create()
+            .map_err(|error| transport("create the fault server", error))?;
         Ok(Self {
             descriptor,
             heartbeat,
@@ -468,6 +510,7 @@ impl Ports {
             control,
             command,
             fault,
+            backing,
             _node: node,
         })
     }
@@ -508,16 +551,19 @@ fn run_ports(
     redeclarations: &mpsc::Receiver<Descriptor>,
     ready: tokio::sync::oneshot::Sender<Result<(), ContractError>>,
 ) {
-    let ports = match Ports::open(&context.options) {
+    let mut ports = match Ports::open(&context.options) {
         Ok(ports) => {
             let _ = ready.send(Ok(()));
-            ports
+            Some(ports)
         }
         Err(error) => {
             let _ = ready.send(Err(error));
             return;
         }
     };
+    let mut next_backing_check = Instant::now() + backing::PERIOD;
+    let mut next_reopen = Instant::now();
+    let mut reopen_error: Option<String> = None;
     let mut generation = 1;
     let mut seqs = Seqs::default();
     let mut daemon = Daemon::default();
@@ -554,7 +600,7 @@ fn run_ports(
             .chain(std::iter::from_fn(|| outbound.try_recv().ok()))
         {
             send_outbound(
-                &ports,
+                ports.as_ref(),
                 &context,
                 generation,
                 &mut seqs,
@@ -565,6 +611,37 @@ fn run_ports(
         }
 
         let now = Instant::now();
+        let Some(open) = ports.as_ref() else {
+            if now >= next_reopen {
+                next_reopen = now + backing::PERIOD;
+                match Ports::open(&context.options) {
+                    Ok(reopened) => {
+                        info!(
+                            service = context.options.names.base(),
+                            "end-effector provider services open again"
+                        );
+                        ports = Some(reopened);
+                        reopen_error = None;
+                        next_descriptor = now;
+                        next_heartbeat = now;
+                        next_backing_check = now + backing::PERIOD;
+                    }
+                    Err(error) => {
+                        let error = error.to_string();
+                        if reopen_error.as_deref() != Some(error.as_str()) {
+                            warn!(
+                                service = context.options.names.base(),
+                                %error,
+                                "the end-effector provider services cannot be opened again yet; \
+                                 retrying every second"
+                            );
+                            reopen_error = Some(error);
+                        }
+                    }
+                }
+            }
+            continue;
+        };
         if now >= next_descriptor {
             next_descriptor = now + Duration::from_millis(ports::LATCHED_REPUBLISH_MS);
             match context.descriptor.to_wire(
@@ -572,7 +649,7 @@ fn run_ports(
                 model::header(context.instance_id, next(&mut seqs.descriptor)),
             ) {
                 Ok(message) => {
-                    if let Err(error) = ports.descriptor.send_copy(message) {
+                    if let Err(error) = open.descriptor.send_copy(message) {
                         warn!(?error, "descriptor publish failed");
                     }
                 }
@@ -585,35 +662,43 @@ fn run_ports(
                 context.instance_id,
                 next(&mut seqs.heartbeat),
             ));
-            if let Err(error) = ports.heartbeat.send_copy(message) {
+            if let Err(error) = open.heartbeat.send_copy(message) {
                 warn!(?error, "heartbeat publish failed");
             }
         }
 
-        receive_control(&ports, &context, &mut daemon, now);
-        receive_joints(&ports, &context, generation);
+        receive_control(open, &context, &mut daemon, now);
+        receive_joints(open, &context, generation);
         receive_commands(
-            &ports,
+            open,
             &context,
             generation,
             &mut seqs,
             &mut commands,
             &mut next_request_id,
         );
-        receive_faults(
-            &ports,
-            &context,
-            &mut seqs,
-            &mut faults,
-            &mut next_request_id,
-        );
+        receive_faults(open, &context, &mut seqs, &mut faults, &mut next_request_id);
+        if now >= next_backing_check {
+            next_backing_check = now + backing::PERIOD;
+            if let Some(removed) = open.backing.removed() {
+                warn!(
+                    service = context.options.names.base(),
+                    removed,
+                    "the shared-memory segment of a service this provider serves was removed by \
+                     another process (systemd-logind RemoveIPC removes an account's segments when \
+                     its last login session ends); opening the services again"
+                );
+                backing::abandon(ports.take());
+                next_reopen = now;
+            }
+        }
     }
     // Requests still parked are dropped with their ports: the daemon sees
     // the provider go away and reports it, rather than a silent success.
 }
 
 fn send_outbound(
-    ports: &Ports,
+    ports: Option<&Ports>,
     context: &PortContext,
     generation: u64,
     seqs: &mut Seqs,
@@ -623,6 +708,9 @@ fn send_outbound(
 ) {
     let instance = context.instance_id;
     match message {
+        // While the services are being opened again a state or a tick has
+        // nowhere to go; the next one after the reopen is sent.
+        Outbound::State(_) | Outbound::Tick(_) if ports.is_none() => {}
         Outbound::State(mut state) => {
             // An array the descriptor does not declare is sent as NaN
             // throughout, as the contract requires of a provider.
@@ -635,7 +723,9 @@ fn send_outbound(
             }
             match state.to_wire(generation, model::header(instance, next(&mut seqs.state))) {
                 Ok(message) => {
-                    if let Err(error) = ports.state.send_copy(message) {
+                    if let Some(ports) = ports
+                        && let Err(error) = ports.state.send_copy(message)
+                    {
                         warn!(?error, "state publish failed");
                     }
                 }
@@ -645,7 +735,9 @@ fn send_outbound(
         Outbound::Tick(tick) => {
             match tick.to_wire(generation, model::header(instance, next(&mut seqs.tick))) {
                 Ok(message) => {
-                    if let Err(error) = ports.tick.send_copy(message) {
+                    if let Some(ports) = ports
+                        && let Err(error) = ports.tick.send_copy(message)
+                    {
                         debug!(?error, "tick publish failed");
                     }
                 }

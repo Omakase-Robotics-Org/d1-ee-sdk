@@ -368,6 +368,7 @@ dependencies = [
  "d1fw-ee-provider",
  "d1fw-ee-shm-contract",
  "iceoryx2",
+ "iceoryx2-cal",
  "serde",
  "serde_json",
  "tokio",
