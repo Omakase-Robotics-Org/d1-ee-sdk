@@ -180,6 +180,15 @@ struct State {
     /// The daemon instance and `seq` of the newest received frame.
     last_rx: Option<(u64, u64)>,
     tx_seq: u64,
+    /// The daemon instance and `tx_seq_seen` of the newest status that binds
+    /// this provider; `None` while none does.
+    bound: Option<(u64, u64)>,
+    /// `tx_seq` when the relay's current binding of this provider began.
+    /// A relay that binds a provider afresh (it opened its services again,
+    /// restarted, or unbound a silent provider) counts `tx_seq_seen` from 0,
+    /// and nothing published before is taken any more; counting those frames
+    /// as untaken would hold the window shut for good.
+    tx_base: u64,
     bucket: Bucket,
     stats: FlangeStats,
     closed: bool,
@@ -245,6 +254,8 @@ impl FlangeBus {
                 rx: VecDeque::new(),
                 last_rx: None,
                 tx_seq: 0,
+                bound: None,
+                tx_base: 0,
                 bucket: Bucket::new(),
                 stats: FlangeStats::default(),
                 closed: false,
@@ -375,7 +386,7 @@ impl FlangeBus {
                     "a 29-bit identifier; the channel carries 11-bit ones only".to_owned(),
                 ));
             }
-            let wait = if state.tx_seq.saturating_sub(status.tx_seq_seen) >= TX_WINDOW {
+            let wait = if state.tx_seq.saturating_sub(taken(&state, &status)) >= TX_WINDOW {
                 Some((
                     Duration::from_millis(1),
                     "the relay has not taken the frames already published",
@@ -431,7 +442,7 @@ impl FlangeBus {
         let deadline = Instant::now() + timeout;
         let mut state = self.inner.lock();
         loop {
-            let seen = admission(&state, self.inner.instance_id)?.tx_seq_seen;
+            let seen = taken(&state, admission(&state, self.inner.instance_id)?);
             if seen >= state.tx_seq {
                 return Ok(());
             }
@@ -501,6 +512,12 @@ fn fresh(state: &State) -> Option<&Status> {
         .as_ref()
         .filter(|(_, at)| at.elapsed() <= DAEMON_STALE)
         .map(|(status, _)| status)
+}
+
+/// The newest tx `seq` that no longer counts against the window: taken by
+/// the relay, or published before its current binding of this provider.
+fn taken(state: &State, status: &Status) -> u64 {
+    status.tx_seq_seen.max(state.tx_base)
 }
 
 /// The newest status when it admits `instance` with the channel up, or why
@@ -705,7 +722,10 @@ fn run(
                      login session ends); opening the services again"
                 );
                 backing::abandon(ports.take());
-                inner.lock().status = None;
+                let mut state = inner.lock();
+                state.status = None;
+                state.bound = None;
+                drop(state);
                 inner.changed.notify_all();
                 next_reopen = now;
                 continue;
@@ -726,6 +746,24 @@ fn run(
     }
     inner.lock().closed = true;
     inner.changed.notify_all();
+}
+
+/// Follow the relay's binding of `instance` through `status`: a binding that
+/// begins (no status bound it before, another daemon instance sends it, or
+/// its `tx_seq_seen` went back) starts the window at what is already
+/// published.
+fn rebind(state: &mut State, status: &Status, instance: u64) {
+    if status.bound_instance_id != Some(instance) {
+        state.bound = None;
+        return;
+    }
+    let continues = state.bound.is_some_and(|(daemon, seen)| {
+        daemon == status.daemon_instance_id && status.tx_seq_seen >= seen
+    });
+    if !continues {
+        state.tx_base = state.tx_seq;
+    }
+    state.bound = Some((status.daemon_instance_id, status.tx_seq_seen));
 }
 
 /// Take what the daemon published; `true` when something changed.
@@ -764,6 +802,7 @@ fn receive(inner: &Inner, ports: &Ports) -> bool {
     }
     let mut state = inner.lock();
     if let Some(status) = newest_status {
+        rebind(&mut state, &status, inner.instance_id);
         state.status = Some((status, Instant::now()));
         changed = true;
     }

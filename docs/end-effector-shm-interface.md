@@ -307,7 +307,8 @@ relay would refuse — not admitted, the channel down, a motion frame under
 the latch, a frame the channel does not carry — so a device driver fails a
 command immediately instead of waiting out an answer that cannot come; it
 keeps at most 32 frames published beyond the status's `tx_seq_seen` (half the
-`tx` buffer, so a frame is never overwritten unread) and paces frames to the
+`tx` buffer, so a frame is never overwritten unread), counted from where the
+relay's current binding of it began, and paces frames to the
 relay's ceiling, waiting up to 100 ms before it reports the relay busy.
 `flush` returns once the relay has taken every frame sent, which is how a
 write a device does not acknowledge returns only once it has left for the

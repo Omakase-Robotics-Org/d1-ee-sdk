@@ -6,6 +6,23 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ## [Unreleased]
 
+### Fixed
+
+- `FlangeBus` no longer stays busy for good after the relay binds it afresh.
+  A relay that opened its services again (their segments removed by
+  systemd-logind's `RemoveIPC=yes`) or restarted counts `tx_seq_seen` from 0,
+  while the provider kept counting its published frames from its start: once
+  32 or more had been published, every `send` waited for a `tx_seq_seen`
+  that only its own next frame could advance, and failed with "the flange
+  relay is busy: the relay has not taken the frames already published"
+  (seen on a D1 with d1-firmwared 0.19.0 and `d1-ee-dh-ag100100` 0.3.1: every
+  `set` and state read refused after the first removal). The window now
+  counts only frames published since the relay's current binding began: a
+  status that binds the provider after none did, from another daemon
+  instance, or with a `tx_seq_seen` that went back starts a new binding.
+  The contract's rule 4 (`spec/flange_bus.shm/1.md`) says so; the wire and
+  the layouts are unchanged.
+
 ## [0.3.0] - 2026-11-15
 
 ### Fixed
