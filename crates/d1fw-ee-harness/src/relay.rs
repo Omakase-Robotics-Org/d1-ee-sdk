@@ -358,6 +358,10 @@ struct Relay {
     ports: Option<Ports>,
     next_open: Instant,
     binding: Option<Binding>,
+    /// The instance bound last, kept while none is bound: its `tx_seq_seen`
+    /// goes on counting the frames refused from it, and the same instance
+    /// bound again continues from it, as d1-firmwared's relay does.
+    unbound: Option<Binding>,
     counters: Counters,
     channel_up: bool,
     channel_error: Option<String>,
@@ -378,6 +382,7 @@ fn run(shared: &Shared, inbound: &mpsc::Receiver<Received>, stop: &AtomicBool) {
         ports: None,
         next_open: Instant::now(),
         binding: None,
+        unbound: None,
         counters: Counters::default(),
         channel_up: true,
         channel_error: None,
@@ -511,10 +516,15 @@ fn receive_heartbeats(shared: &Shared, relay: &mut Relay) {
                     provider_instance_id = heartbeat.provider_instance_id,
                     "flange relay bound a provider"
                 );
+                let tx_seq_seen = relay
+                    .unbound
+                    .take()
+                    .filter(|unbound| unbound.instance_id == heartbeat.provider_instance_id)
+                    .map_or(0, |unbound| unbound.tx_seq_seen);
                 relay.binding = Some(Binding {
                     instance_id: heartbeat.provider_instance_id,
                     heartbeat_mono_ns: heartbeat.mono_ns,
-                    tx_seq_seen: 0,
+                    tx_seq_seen,
                 });
                 relay.logged.clear();
             }
@@ -529,7 +539,7 @@ fn receive_heartbeats(shared: &Shared, relay: &mut Relay) {
             stale_after_ms = shared.stale_after.as_millis(),
             "flange relay unbound a provider whose heartbeat went stale"
         );
-        relay.binding = None;
+        relay.unbound = relay.binding.take();
     }
 }
 
@@ -552,11 +562,12 @@ fn receive_tx(shared: &Shared, relay: &mut Relay) {
 
 fn take_tx(shared: &Shared, relay: &mut Relay, message: &wire::TxFrame) {
     let sender = message.header.instance_id;
-    let bound = relay
+    let counted = relay
         .binding
         .as_mut()
+        .or(relay.unbound.as_mut())
         .filter(|binding| binding.instance_id == sender);
-    if let Some(binding) = bound {
+    if let Some(binding) = counted {
         let seq = message.header.seq;
         if binding.tx_seq_seen != 0 && seq > binding.tx_seq_seen + 1 {
             relay.counters.tx_lost += seq - binding.tx_seq_seen - 1;
