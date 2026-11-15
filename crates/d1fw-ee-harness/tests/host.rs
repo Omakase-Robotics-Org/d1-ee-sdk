@@ -234,3 +234,92 @@ async fn the_test_provider_process_follows_the_lifecycle() {
         vec!["set", "clear_fault", "registers", "joints", "stop"]
     );
 }
+
+/// Remove every file of `root`'s services: the POSIX shared-memory objects
+/// under its prefix, as systemd-logind's `RemoveIPC=yes` removes every one
+/// its account owns when that account's last login session ends, and the
+/// static configurations, as d1-firmwared removes the ones left without
+/// their dynamic segment before it opens its services afresh.
+fn remove_services(root: &ShmRoot) {
+    for entry in std::fs::read_dir("/dev/shm").unwrap().flatten() {
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(root.prefix())
+        {
+            std::fs::remove_file(entry.path()).unwrap();
+        }
+    }
+    let services = std::path::Path::new(root.root_path()).join("services");
+    for entry in std::fs::read_dir(services).unwrap().flatten() {
+        std::fs::remove_file(entry.path()).unwrap();
+    }
+}
+
+/// The services removed under a running provider and the daemon's side
+/// opened afresh: the provider notices, opens its services again, and the
+/// new side takes it back and has its commands served, without a restart.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_provider_opens_its_services_again_after_they_were_removed() {
+    let root = ShmRoot::scratch();
+    let (old_host, record, _handle) = served(&root).await;
+    remove_services(&root);
+    drop(old_host);
+
+    let host = Host::start(HostSettings::new("a", root.clone()));
+    host.until_available(WAIT).await;
+    assert_eq!(status(&host.set(&SetRequest::openness(0.25)).await), 200);
+    assert_eq!(record.sets.lock().unwrap().len(), 1);
+}
+
+/// The same for the flange channel: the provider's channel opens its
+/// services again and is admitted by the new relay.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_flange_channel_opens_its_services_again_after_they_were_removed() {
+    let root = ShmRoot::scratch();
+    let recorder = Recorder::new(Echo::default());
+    let old_host = Host::start_with_flange_channel(
+        HostSettings::new("a", root.clone()),
+        Arc::new(recorder.clone()),
+    );
+    let bus = Arc::new(
+        FlangeBus::open(FlangeOptions::new(
+            root.clone(),
+            FlangeNames::new(&flange::default_base("a")).unwrap(),
+        ))
+        .expect("open the flange"),
+    );
+    let admitted = |bus: &Arc<FlangeBus>| {
+        let waiting = Arc::clone(bus);
+        tokio::task::spawn_blocking(move || waiting.wait_admitted(WAIT))
+    };
+    admitted(&bus).await.unwrap().expect("admitted");
+    remove_services(&root);
+    drop(old_host);
+
+    let _host = Host::start_with_flange_channel(
+        HostSettings::new("a", root.clone()),
+        Arc::new(recorder.clone()),
+    );
+    // Past one check period and the old relay's last status going stale, so
+    // the admission waited for is the new relay's.
+    tokio::time::sleep(Duration::from_millis(1600)).await;
+    admitted(&bus)
+        .await
+        .unwrap()
+        .expect("admitted by the new relay");
+    let sending = Arc::clone(&bus);
+    tokio::task::spawn_blocking(move || {
+        sending.send(&Frame::standard(0x10, vec![1, 2]), TxKind::Read)
+    })
+    .await
+    .unwrap()
+    .expect("a frame through the new relay");
+    let replying = Arc::clone(&bus);
+    let reply = tokio::task::spawn_blocking(move || replying.recv(Duration::from_secs(1)))
+        .await
+        .unwrap()
+        .expect("receive")
+        .expect("an answer");
+    assert_eq!(reply.frame.id, 0x11);
+}

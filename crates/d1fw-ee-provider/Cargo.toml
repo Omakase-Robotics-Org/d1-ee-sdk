@@ -18,6 +18,7 @@ test-support = []
 [dependencies]
 d1fw-ee-shm-contract.workspace = true
 iceoryx2.workspace = true
+iceoryx2-cal.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
 serde.workspace = true
