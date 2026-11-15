@@ -6,6 +6,8 @@ versions follow `0.x` SemVer (README, "Versions").
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
 ### Fixed
 
 - A provider whose services' shared-memory segments were removed under it
