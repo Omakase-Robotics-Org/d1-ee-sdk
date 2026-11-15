@@ -19,6 +19,8 @@ repository = "https://github.com/Omakase-Robotics-Org/d1-ee-sdk"
 # provider must be built against the same release. d1-firmware pins the same
 # `=0.9.3`; the two pins move together or not at all.
 iceoryx2 = "=0.9.3"
+# Its naming of a service's resources, to find a dynamic segment on disk.
+iceoryx2-cal = "=0.9.3"
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }

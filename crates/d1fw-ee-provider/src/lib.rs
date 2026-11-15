@@ -58,6 +58,7 @@ pub use d1fw_ee_shm_contract::{
 };
 use tokio::sync::watch;
 
+mod backing;
 mod flange;
 mod grip_force;
 mod runtime;

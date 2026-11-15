@@ -36,7 +36,9 @@ use iceoryx2::{
     port::{publisher::Publisher, subscriber::Subscriber},
     prelude::Node,
 };
-use tracing::warn;
+use tracing::{info, warn};
+
+use crate::backing::{self, Backing};
 
 /// How long the port thread waits for a frame to send before it polls the
 /// daemon's topics again: the most a received frame waits before a `recv`
@@ -535,6 +537,8 @@ struct Ports {
     heartbeat: Publisher<Ipc, wire::Heartbeat, ()>,
     rx: Subscriber<Ipc, wire::RxFrame, ()>,
     status: Subscriber<Ipc, wire::Status, ()>,
+    /// The services' dynamic segments, checked every [`backing::PERIOD`].
+    backing: Backing,
     // Declared last: fields drop in order, and the node must outlive its
     // ports.
     _node: Node<Ipc>,
@@ -548,48 +552,70 @@ impl Ports {
     fn open(options: &FlangeOptions) -> Result<Self, ContractError> {
         let node = options.root.node(&options.node_name)?;
         let names = &options.names;
-        let tx = ports::open_topic::<wire::TxFrame>(
-            &node,
-            &names.name(flange::TX),
-            flange::TX_TOPIC,
-        )?
-        .publisher_builder()
-        .create()
-        .map_err(|error| {
-            transport(
-                &format!(
-                    "create the tx publisher of {} (is another provider serving this side?)",
-                    names.base()
-                ),
-                error,
-            )
-        })?;
-        let heartbeat = ports::open_topic::<wire::Heartbeat>(
-            &node,
-            &names.name(flange::HEARTBEAT),
-            flange::HEARTBEAT_TOPIC,
-        )?
-        .publisher_builder()
-        .create()
-        .map_err(|error| transport("create the heartbeat publisher", error))?;
-        let rx =
-            ports::open_topic::<wire::RxFrame>(&node, &names.name(flange::RX), flange::RX_TOPIC)?
-                .subscriber_builder()
-                .create()
-                .map_err(|error| transport("create the rx subscriber", error))?;
-        let status = ports::open_topic::<wire::Status>(
-            &node,
-            &names.name(flange::STATUS),
-            flange::STATUS_TOPIC,
-        )?
-        .subscriber_builder()
-        .create()
-        .map_err(|error| transport("create the status subscriber", error))?;
+        let config = options.root.config()?;
+        let mut backing = Backing::default();
+        let tx = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::TxFrame>(
+                    &node,
+                    &names.name(flange::TX),
+                    flange::TX_TOPIC,
+                )?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| {
+                transport(
+                    &format!(
+                        "create the tx publisher of {} (is another provider serving this side?)",
+                        names.base()
+                    ),
+                    error,
+                )
+            })?;
+        let heartbeat = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Heartbeat>(
+                    &node,
+                    &names.name(flange::HEARTBEAT),
+                    flange::HEARTBEAT_TOPIC,
+                )?,
+            )?
+            .publisher_builder()
+            .create()
+            .map_err(|error| transport("create the heartbeat publisher", error))?;
+        let rx = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::RxFrame>(
+                    &node,
+                    &names.name(flange::RX),
+                    flange::RX_TOPIC,
+                )?,
+            )?
+            .subscriber_builder()
+            .create()
+            .map_err(|error| transport("create the rx subscriber", error))?;
+        let status = backing
+            .watch(
+                &config,
+                ports::open_topic::<wire::Status>(
+                    &node,
+                    &names.name(flange::STATUS),
+                    flange::STATUS_TOPIC,
+                )?,
+            )?
+            .subscriber_builder()
+            .create()
+            .map_err(|error| transport("create the status subscriber", error))?;
         Ok(Self {
             tx,
             heartbeat,
             rx,
             status,
+            backing,
             _node: node,
         })
     }
@@ -602,10 +628,10 @@ fn run(
     stop: &AtomicBool,
     ready: &mpsc::Sender<Result<(), ContractError>>,
 ) {
-    let ports = match Ports::open(options) {
+    let mut ports = match Ports::open(options) {
         Ok(ports) => {
             let _ = ready.send(Ok(()));
-            ports
+            Some(ports)
         }
         Err(error) => {
             let _ = ready.send(Err(error));
@@ -615,6 +641,9 @@ fn run(
     let period_ms = u32::try_from(options.heartbeat_period.as_millis()).unwrap_or(u32::MAX);
     let mut heartbeat_seq = 0_u64;
     let mut next_heartbeat = Instant::now();
+    let mut next_backing_check = Instant::now() + backing::PERIOD;
+    let mut next_reopen = Instant::now();
+    let mut reopen_error: Option<String> = None;
     while !stop.load(Ordering::Relaxed) {
         let first = match frames.recv_timeout(POLL) {
             Ok(frame) => Some(frame),
@@ -625,21 +654,73 @@ fn run(
             .into_iter()
             .chain(std::iter::from_fn(|| frames.try_recv().ok()))
         {
-            if let Err(error) = ports.tx.send_copy(frame) {
+            // While the services are being opened again a frame has nowhere
+            // to go; the relay has unbound this provider meanwhile, so the
+            // SDK refuses further sends until it is admitted again.
+            if let Some(open) = &ports
+                && let Err(error) = open.tx.send_copy(frame)
+            {
                 warn!(?error, "tx publish failed");
             }
         }
         let now = Instant::now();
+        let Some(open) = ports.as_ref() else {
+            if now >= next_reopen {
+                next_reopen = now + backing::PERIOD;
+                match Ports::open(options) {
+                    Ok(reopened) => {
+                        info!(
+                            service = options.names.base(),
+                            "the flange channel's services are open again"
+                        );
+                        ports = Some(reopened);
+                        reopen_error = None;
+                        next_heartbeat = now;
+                        next_backing_check = now + backing::PERIOD;
+                    }
+                    Err(error) => {
+                        let error = error.to_string();
+                        if reopen_error.as_deref() != Some(error.as_str()) {
+                            warn!(
+                                service = options.names.base(),
+                                %error,
+                                "the flange channel's services cannot be opened again yet; \
+                                 retrying every second"
+                            );
+                            reopen_error = Some(error);
+                        }
+                    }
+                }
+            }
+            continue;
+        };
+        if now >= next_backing_check {
+            next_backing_check = now + backing::PERIOD;
+            if let Some(removed) = open.backing.removed() {
+                warn!(
+                    service = options.names.base(),
+                    removed,
+                    "the shared-memory segment of a flange channel service was removed by another \
+                     process (systemd-logind RemoveIPC removes an account's segments when its last \
+                     login session ends); opening the services again"
+                );
+                backing::abandon(ports.take());
+                inner.lock().status = None;
+                inner.changed.notify_all();
+                next_reopen = now;
+                continue;
+            }
+        }
         if now >= next_heartbeat {
             next_heartbeat = now + options.heartbeat_period;
             heartbeat_seq += 1;
             let message =
                 Heartbeat::to_wire(period_ms, model::header(inner.instance_id, heartbeat_seq));
-            if let Err(error) = ports.heartbeat.send_copy(message) {
+            if let Err(error) = open.heartbeat.send_copy(message) {
                 warn!(?error, "heartbeat publish failed");
             }
         }
-        if receive(inner, &ports) {
+        if receive(inner, open) {
             inner.changed.notify_all();
         }
     }
